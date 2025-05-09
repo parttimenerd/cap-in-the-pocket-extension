@@ -74,7 +74,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     
     // First, kill any processes using port 4004
     const killPortProcess = require('child_process').spawn(
-      'lsof -ti:4004 | xargs kill -9 || true', 
+      '(lsof -ti:4004 | xargs kill -9) || killall java || true', 
       [], 
       options
     );

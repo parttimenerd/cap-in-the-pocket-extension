@@ -5,7 +5,7 @@ This is the corresponding extension for my demo.
 It allows you to run
 
 ```sh
-lsof -ti:4004 | xargs kill -9 || true
+(lsof -ti:4004 | xargs kill -9) || killall java || true
 mvn spring-boot:run
 ```
 
@@ -15,6 +15,7 @@ and allow you to create short-cut links.
 **This is highly experimental and used for one single demo.**
 
 ![View](media/view.png)
+![Phone](media/phone_view.png)
 
 ## Installation
 
