@@ -71,8 +71,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       cwd: projectRoot,
       shell: true,
       env: {
-        ...process.env,
-        MAVEN_OPTS: '-Djansi.passthrough=false -Djansi.strip=true'
+        ...process.env
       }
     };
     
@@ -91,7 +90,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       });
       
       // Now start the Maven Spring Boot process
-      const childProcess = require('child_process').spawn('mvn spring-boot:run', [], options);
+      const childProcess = require('child_process').spawn('mvn spring-boot:run -B', [], options);
       
       // Stream stdout in real-time
       childProcess.stdout.on('data', (data: Buffer) => {
