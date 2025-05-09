@@ -63,18 +63,41 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     
     // Update webview UI to show "running" state with the correct folder
     webview.postMessage({
-      log: `\n▶️ Running in ${projectRoot}:\n    killall mvn; mvn spring-boot:run\n`
+      log: `\n▶️ Running in ${projectRoot}:\n    killall mvn; mvn spring-boot:run\n\n`
     });
 
     // Execute the shell command in the project root directory
-    const options = { cwd: projectRoot };
-    exec("killall mvn; mvn spring-boot:run", options, (error, stdout, stderr) => {
-      if (stdout) webview.postMessage({ log: `\n${stdout}` });
-      if (stderr) webview.postMessage({ log: `\n[ERR] ${stderr}` });
-      if (error) webview.postMessage({ log: `\n[ERROR] ${error.message}` });
-
-      // Update webview UI to show "done" state
-      webview.postMessage({ log: "\n✅ Finished.\n" });
+    const options = { 
+      cwd: projectRoot,
+      shell: true 
+    };
+    
+    // Use spawn instead of exec for streaming output
+    const childProcess = require('child_process').spawn('killall mvn 2>/dev/null || true && mvn spring-boot:run', [], options);
+    
+    // Stream stdout in real-time
+    childProcess.stdout.on('data', (data: Buffer) => {
+      const output = data.toString();
+      webview.postMessage({ log: output });
+    });
+    
+    // Stream stderr in real-time 
+    childProcess.stderr.on('data', (data: Buffer) => {
+      const output = data.toString();
+      webview.postMessage({ log: output });
+    });
+    
+    // Handle process completion
+    childProcess.on('close', (code: number) => {
+      const exitMessage = code === 0 
+        ? "\n✅ Process completed successfully.\n" 
+        : `\n⚠️ Process exited with code ${code}.\n`;
+      webview.postMessage({ log: exitMessage });
+    });
+    
+    // Handle process errors
+    childProcess.on('error', (err: Error) => {
+      webview.postMessage({ log: `\n❌ Error: ${err.message}\n` });
     });
   }
 
@@ -144,6 +167,26 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             border-radius: 4px;
             cursor: pointer;
           }
+          .extension-tagline {
+            margin: 12px 0;
+            text-align: center;
+            color: #888888;
+            font-size: 12px;
+            font-style: italic;
+            padding: 6px;
+            border-top: 1px solid #3c3c3c;
+            border-bottom: 1px solid #3c3c3c;
+            background-color: rgba(60, 60, 60, 0.1);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .extension-tagline::before {
+            content: "⚡";
+            margin-right: 6px;
+            font-size: 14px;
+          }
           #output {
             margin-top: 20px;
             background: #1e1e1e;
@@ -205,7 +248,9 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         <button id="runButton">
           (Re)Launch CAP App
         </button>
-        <it>Experimental CAP in the Pocket Extension</it>
+        <div class="extension-tagline">
+          Experimental CAP in the Pocket Extension
+        </div>
         <pre id="output"></pre>
         
         ${urlButtonsHtml}
