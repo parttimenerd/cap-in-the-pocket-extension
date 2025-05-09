@@ -2,11 +2,10 @@ name: Build and Release Extension
 
 on:
   push:
-    branches: [ main ]
-    paths-ignore:
-      - '**.md'
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
+  workflow_dispatch: # Allow manual triggering
 
 permissions:
   contents: write
@@ -19,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tags
         
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -45,9 +46,14 @@ jobs:
           
   release:
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout for tag operations
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tags
+          
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -64,28 +70,39 @@ jobs:
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           CURRENT_DATE=$(date +"%Y-%m-%d %H:%M")
           echo "build_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+      
+      # Use the same action that works in your Go project to delete older releases
+      - name: Delete older snapshot releases
+        uses: thomashampson/delete-older-releases@main
+        with:
+          keep_latest: 0
+          delete_tag_regex: snapshot
+          prerelease_only: true
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
-      # Delete existing snapshot tag if it exists
-      - name: Delete existing snapshot tag
-        run: |
-          git fetch --tags
-          if git rev-parse --verify snapshot 2>/dev/null; then
-            git tag -d snapshot
-            git push --delete origin snapshot || true
-          fi
-        continue-on-error: true
-          
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
+      # Use the same softprops action that works in your Go project
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
           files: ${{ steps.package.outputs.vsix_path }}
           tag_name: snapshot
-          name: Snapshot
           body: |
             # 📦 Latest Snapshot Build
             
             **Built on:** ${{ steps.package.outputs.build_date }}
             **Version:** ${{ steps.package.outputs.version }}
-            **Commit:** ${{ github.sha }}
+            **Commit:** [${{ steps.package.outputs.commit_sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
             
+            This is an automated snapshot build from the latest commit on the main branch.
+            
+            ## How to install
+            1. Download the .vsix file
+            2. In VS Code, go to Extensions (Ctrl+Shift+X)
+            3. Click the "..." menu in the top-right
+            4. Select "Install from VSIX..."
+            5. Browse to the downloaded file
+          name: Snapshot Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -51,13 +51,24 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
   }
 
   private runSpringBoot(webview: vscode.Webview) {
-    // Update webview UI to show "running" state
+    // Get workspace folder - use the first one if multiple are open
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      webview.postMessage({ log: "\n❌ Error: No workspace folder is open. Please open a CAP project folder first.\n" });
+      return;
+    }
+    
+    // Use the first workspace folder as the project root
+    const projectRoot = workspaceFolders[0].uri.fsPath;
+    
+    // Update webview UI to show "running" state with the correct folder
     webview.postMessage({
-      log: "\n▶️ Running: killall mvn; mvn spring-boot:run\n",
+      log: `\n▶️ Running in ${projectRoot}:\n    killall mvn; mvn spring-boot:run\n`
     });
 
-    // Execute the shell command
-    exec("killall mvn; mvn spring-boot:run", (error, stdout, stderr) => {
+    // Execute the shell command in the project root directory
+    const options = { cwd: projectRoot };
+    exec("killall mvn; mvn spring-boot:run", options, (error, stdout, stderr) => {
       if (stdout) webview.postMessage({ log: `\n${stdout}` });
       if (stderr) webview.postMessage({ log: `\n[ERR] ${stderr}` });
       if (error) webview.postMessage({ log: `\n[ERROR] ${error.message}` });
@@ -194,6 +205,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         <button id="runButton">
           (Re)Launch CAP App
         </button>
+        <it>Experimental CAP in the Pocket Extension</it>
         <pre id="output"></pre>
         
         ${urlButtonsHtml}
