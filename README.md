@@ -16,6 +16,7 @@ and allow you to create short-cut links.
 This is highly experimental and used for one single demo.
 **
 
+![View](media/view.png)
 
 ## Installation
 
