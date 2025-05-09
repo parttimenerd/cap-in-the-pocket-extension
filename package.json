@@ -1,0 +1,80 @@
+{
+  "name": "cap-in-the-pocket",
+  "displayName": "CAP-in-the-Pocket",
+  "description": "Runs CAP applications with one click.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "publisher": "Johannes Bechberger",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/parttimenerd/cap-in-the-pocket-extension.git"
+  },
+  "keywords": ["cap", "sap", "spring-boot", "runner"],
+  "license": "MIT",
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:runSpringBootView"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "runSpringBootContainer",
+          "title": "CAP App",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "runSpringBootContainer": [
+        {
+          "id": "runSpringBootView",
+          "name": "Run CAP App",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CAP-in-the-Pocket",
+      "properties": {
+        "springBootRunner.urlButtons": {
+          "type": "array",
+          "default": [
+            {
+              "label": "Travel Processor",
+              "url": "http://localhost:4004/travel_processor/dist/index.html"
+            },
+            {
+              "label": "Travel Analytics",
+              "url": "http://localhost:4004/travel_analytics/dist/index.html"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Button label"
+              },
+              "url": {
+                "type": "string",
+                "description": "URL to launch"
+              }
+            }
+          },
+          "description": "List of URL buttons to display"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.70.0",
+    "typescript": "^5.0.0"
+  }
+}
