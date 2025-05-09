@@ -63,7 +63,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     
     // Update webview UI to show "running" state with the correct folder
     webview.postMessage({
-      log: `\n▶️ Running in ${projectRoot}:\n    killall mvn; mvn spring-boot:run\n\n`
+      log: `\n▶️ Running in ${projectRoot}:\n    Stopping processes on port 4004 and starting CAP app...\n\n`
     });
 
     // Execute the shell command in the project root directory
@@ -72,32 +72,55 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       shell: true 
     };
     
-    // Use spawn instead of exec for streaming output
-    const childProcess = require('child_process').spawn('killall mvn 2>/dev/null || true && mvn spring-boot:run', [], options);
+    // First, kill any processes using port 4004
+    const killPortProcess = require('child_process').spawn(
+      'lsof -ti:4004 | xargs kill -9 || true', 
+      [], 
+      options
+    );
     
-    // Stream stdout in real-time
-    childProcess.stdout.on('data', (data: Buffer) => {
-      const output = data.toString();
-      webview.postMessage({ log: output });
+    killPortProcess.on('close', (code: number) => {
+      webview.postMessage({ 
+        log: code === 0 
+          ? "✅ Stopped existing processes using port 4004\n\n" 
+          : "ℹ️ No processes were using port 4004\n\n" 
+      });
+      
+      // Now start the Maven Spring Boot process
+      const childProcess = require('child_process').spawn('mvn spring-boot:run', [], options);
+      
+      // Stream stdout in real-time
+      childProcess.stdout.on('data', (data: Buffer) => {
+        const output = data.toString();
+        webview.postMessage({ log: output });
+      });
+      
+      // Stream stderr in real-time 
+      childProcess.stderr.on('data', (data: Buffer) => {
+        const output = data.toString();
+        webview.postMessage({ log: output });
+      });
+      
+      // Handle process completion
+      childProcess.on('close', (code: number) => {
+        const exitMessage = code === 0 
+          ? "\n✅ Process completed successfully.\n" 
+          : `\n⚠️ Process exited with code ${code}.\n`;
+        webview.postMessage({ log: exitMessage });
+      });
+      
+      // Handle process errors
+      childProcess.on('error', (err: Error) => {
+        webview.postMessage({ log: `\n❌ Error: ${err.message}\n` });
+      });
     });
     
-    // Stream stderr in real-time 
-    childProcess.stderr.on('data', (data: Buffer) => {
-      const output = data.toString();
-      webview.postMessage({ log: output });
-    });
-    
-    // Handle process completion
-    childProcess.on('close', (code: number) => {
-      const exitMessage = code === 0 
-        ? "\n✅ Process completed successfully.\n" 
-        : `\n⚠️ Process exited with code ${code}.\n`;
-      webview.postMessage({ log: exitMessage });
-    });
-    
-    // Handle process errors
-    childProcess.on('error', (err: Error) => {
-      webview.postMessage({ log: `\n❌ Error: ${err.message}\n` });
+    // Handle errors from the kill port process
+    killPortProcess.on('error', (err: Error) => {
+      webview.postMessage({ log: `\n⚠️ Warning: Could not check for processes on port 4004: ${err.message}\n` });
+      // Still try to run the main command even if the port check fails
+      const childProcess = require('child_process').spawn('mvn spring-boot:run', [], options);
+      // ... rest of the event listeners for childProcess
     });
   }
 

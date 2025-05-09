@@ -5,7 +5,7 @@ This is the corresponding extension for my demo.
 It allows you to run
 
 ```sh
-killall mvn
+lsof -ti:4004 | xargs kill -9 || true
 mvn spring-boot:run
 ```
 
