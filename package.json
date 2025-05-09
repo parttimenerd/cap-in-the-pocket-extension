@@ -6,7 +6,7 @@
   "engines": {
     "vscode": "^1.70.0"
   },
-  "publisher": "Johannes Bechberger",
+  "publisher": "parttimenerd",
   "repository": {
     "type": "git",
     "url": "https://github.com/parttimenerd/cap-in-the-pocket-extension.git"
