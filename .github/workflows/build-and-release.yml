@@ -70,19 +70,44 @@ jobs:
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           CURRENT_DATE=$(date +"%Y-%m-%d %H:%M")
           echo "build_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
-      
-      # Use the same action that works in your Go project to delete older releases
-      - name: Delete older snapshot releases
-        uses: thomashampson/delete-older-releases@main
-        with:
-          keep_latest: 0
-          delete_tag_regex: snapshot
-          prerelease_only: true
-          delete_tags: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # First step: Explicitly delete the existing release
+      - name: Delete existing release by tag
+        id: delete_release
+        run: |
+          # Get the release ID for the snapshot tag
+          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/snapshot | \
+            jq -r '.id')
           
-      # Use the same softprops action that works in your Go project
+          # If a release ID was found, delete it
+          if [ "$RELEASE_ID" != "null" ] && [ -n "$RELEASE_ID" ]; then
+            echo "Deleting existing release with ID: $RELEASE_ID"
+            curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID
+            echo "deleted=true" >> $GITHUB_OUTPUT
+          else
+            echo "No existing release found with tag 'snapshot'"
+            echo "deleted=false" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      # Second step: Delete the tag itself
+      - name: Delete existing tag
+        run: |
+          # Try to delete the tag directly
+          git push --delete origin snapshot || true
+        continue-on-error: true
+      
+      # Third step: Create a fresh tag
+      - name: Create new tag
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git tag -f snapshot
+          git push -f origin snapshot
+        
+      # Final step: Create the release with the new tag
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -91,7 +116,6 @@ jobs:
           body: |
             # 📦 Latest Snapshot Build
             
-            **Built on:** ${{ steps.package.outputs.build_date }}
             **Version:** ${{ steps.package.outputs.version }}
             **Commit:** [${{ steps.package.outputs.commit_sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
             
