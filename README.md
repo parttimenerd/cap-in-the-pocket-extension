@@ -1,7 +1,7 @@
-CAP-in-the-Pocket Demo Plugin
+CAP-in-the-Pocket Demo Extension
 =============================
 
-This is the corresponding plugin for my demo.
+This is the corresponding extension for my demo.
 It allows you to run
 
 ```sh
@@ -21,13 +21,14 @@ This is highly experimental and used for one single demo.
 
 ### Option 1: Latest Release (Recommended)
 
-1. Go to the [Releases page](https://github.com/parttimenerd/cap-in-the-pocket-extension/releases)
-2. Download the latest `.vsix` file 
-3. In VS Code:
+1. [Download the latest VSIX file](https://github.com/parttimenerd/cap-in-the-pocket-extension/releases/download/snapshot/cap-in-the-pocket-0.0.1.vsix) directly
+2. In VS Code:
    - Open Extensions view (Ctrl+Shift+X or Cmd+Shift+X on macOS)
    - Click the "..." at the top of the Extensions view
    - Select "Install from VSIX..."
    - Browse to the downloaded file
+
+Alternatively, visit the [Releases page](https://github.com/parttimenerd/cap-in-the-pocket-extension/releases) to see all available versions.
 
 ### Option 2: Build from Source
 
@@ -96,12 +97,12 @@ This has been generated with the help of Claude Sonnet and GitHub Copilot.
 
 Contributing
 ------------
-Contributions are welcome! Please feel free to submit a Pull Request. This is an experimental plugin, but if it helps someone.
+Contributions are welcome! Please feel free to submit a Pull Request. This is an experimental extension, but if it helps someone.
 
 Icon
 ----
 The icon is the [CAP](https://cap.cloud.sap/) icon. It belongs to CAP. 
-The demo is created in collaboration with the CAP Java team.
+The demo is created in collaboration with the CAP Java team, but they have nothing to do with this extension itself.
 
 License
 -------
