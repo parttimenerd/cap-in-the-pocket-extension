@@ -145,7 +145,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         break;
       default:
         // Linux and others
-        openCommand = `xdg-open "${url}"`;
+        openCommand = `open "${url}"`;
         break;
     }
     
