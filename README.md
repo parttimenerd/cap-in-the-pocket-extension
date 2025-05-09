@@ -45,7 +45,7 @@ npx @vscode/vsce package
 Usage
 -----
 1. After installation, you'll see a new "CAP App" icon in the activity bar
-2. Click it to open the "Run CAP App" panel
+2. Click it to open the "CAP-in-the-Pocket" panel
 3. Click the "(Re)Launch CAP App" button to start your application
 4. Access your application's endpoints using the buttons below the console output
 

@@ -302,7 +302,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           (Re)Launch CAP App
         </button>
         <div class="extension-tagline">
-          Experimental CAP in the Pocket Extension
+          Experimental CAP-in-the-Pocket Extension
         </div>
         <pre id="output"></pre>
         

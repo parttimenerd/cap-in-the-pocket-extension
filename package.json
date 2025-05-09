@@ -22,7 +22,7 @@
       "activitybar": [
         {
           "id": "runSpringBootContainer",
-          "title": "CAP App",
+          "title": "CAP-in-the-Pocket",
           "icon": "media/icon.svg"
         }
       ]
@@ -31,7 +31,7 @@
       "runSpringBootContainer": [
         {
           "id": "runSpringBootView",
-          "name": "Run CAP App",
+          "name": "CAP-in-the-Pocket",
           "type": "webview"
         }
       ]
