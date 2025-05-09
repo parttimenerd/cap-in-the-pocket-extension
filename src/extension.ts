@@ -21,7 +21,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Listen for configuration changes to update the buttons
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('springBootRunner.urlButtons') && this._view) {
+        if (e.affectsConfiguration('cap-in-the-pocket.urlButtons') && this._view) {
           this._view.webview.html = this.getWebviewContent();
         }
       })
@@ -160,7 +160,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
 
   private getWebviewContent(): string {
     // Get the configured URL buttons
-    const config = vscode.workspace.getConfiguration('springBootRunner');
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     let urlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
     
     // Check if we're using default buttons

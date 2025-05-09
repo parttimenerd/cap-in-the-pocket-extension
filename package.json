@@ -39,7 +39,7 @@
     "configuration": {
       "title": "CAP-in-the-Pocket",
       "properties": {
-        "springBootRunner.urlButtons": {
+        "cap-in-the-pocket.urlButtons": {
           "type": "array",
           "default": [
             {

@@ -62,7 +62,7 @@ demo are used (as seen below).
 
 1. Open VS Code settings (File > Preferences > Settings)
 2. Search for "CAP-in-the-Pocket"
-3. Find the "springBootRunner.urlButtons" setting
+3. Find the "cap-in-the-pocket.urlButtons" setting
 4. Click "Edit in settings.json"
 5. Modify the JSON array to add, edit, or remove entries
 
@@ -73,7 +73,7 @@ demo are used (as seen below).
 An example is given for [CAP SFlight](https://github.com/SAP-samples/cap-sflight)
 
 ```json
-"springBootRunner.urlButtons": [
+"cap-in-the-pocket.urlButtons": [
   {
     "label": "Travel Processor",
     "url": "http://localhost:4004/travel_processor/dist/index.html"
