@@ -129,7 +129,34 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
   }
 
   private openUrl(url: string) {
-    vscode.env.openExternal(vscode.Uri.parse(url));
+    // Use the shell directly to open URLs, which may prevent reload issues on mobile
+    const platform = process.platform;
+    
+    // Choose the appropriate open command based on platform
+    let openCommand: string;
+    
+    switch (platform) {
+      case 'darwin':
+        // macOS
+        openCommand = `open "${url}"`;
+        break;
+      case 'win32':
+        // Windows
+        openCommand = `start "" "${url}"`;
+        break;
+      default:
+        // Linux and others
+        openCommand = `xdg-open "${url}"`;
+        break;
+    }
+    
+    // Execute the shell command to open the URL
+    exec(openCommand, (error) => {
+      if (error) {
+        // Fall back to VS Code's method if the shell command fails
+        vscode.env.openExternal(vscode.Uri.parse(url));
+      }
+    });
   }
 
   private getWebviewContent(): string {
