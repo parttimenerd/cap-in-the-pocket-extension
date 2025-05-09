@@ -4,10 +4,10 @@ CAP-in-the-Pocket Demo Plugin
 This is the corresponding plugin for my demo.
 It allows you to run
 
-```
+```sh
 killall mvn
 mvn spring-boot:run
-``´
+```
 
 with the click of a simple button, show you the output
 and allow you to create short-cut links.
