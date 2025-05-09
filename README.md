@@ -12,9 +12,7 @@ mvn spring-boot:run
 with the click of a simple button, show you the output
 and allow you to create short-cut links.
 
-**
-This is highly experimental and used for one single demo.
-**
+**This is highly experimental and used for one single demo.**
 
 ![View](media/view.png)
 
