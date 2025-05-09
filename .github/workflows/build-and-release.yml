@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
           
       - name: Install dependencies
         run: npm ci
@@ -33,7 +33,7 @@ jobs:
         run: vsce package
         
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vsix-package
           path: "*.vsix"
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: vsix-package
           
@@ -52,15 +52,15 @@ jobs:
         id: package
         run: |
           VSIX_PATH=$(ls *.vsix)
-          echo "::set-output name=vsix_path::$VSIX_PATH"
+          echo "vsix_path=$VSIX_PATH" >> $GITHUB_OUTPUT
           VERSION=$(echo $VSIX_PATH | grep -oP 'cap-in-the-pocket-\K[0-9]+\.[0-9]+\.[0-9]+')
-          echo "::set-output name=version::$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          echo "::set-output name=commit_sha::$COMMIT_SHA"
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.package.outputs.vsix_path }}
           tag_name: v${{ steps.package.outputs.version }}-snapshot-${{ steps.package.outputs.commit_sha }}
