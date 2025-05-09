@@ -69,7 +69,11 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Execute the shell command in the project root directory
     const options = { 
       cwd: projectRoot,
-      shell: true 
+      shell: true,
+      env: {
+        ...process.env,
+        MAVEN_OPTS: '-Djansi.passthrough=false -Djansi.strip=true'
+      }
     };
     
     // First, kill any processes using port 4004
