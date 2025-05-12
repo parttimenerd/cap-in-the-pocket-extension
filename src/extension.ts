@@ -40,8 +40,11 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage((message) => {
       switch (message.command) {
-        case "runSpringBoot":
-          this.runSpringBoot(webviewView.webview);
+        case "restart":
+          this.restart(webviewView.webview);
+          break;
+        case "recompile":
+          this.recompile(webviewView.webview);
           break;
         case "openUrl":
           this.openUrl(message.url);
@@ -50,7 +53,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private runSpringBoot(webview: vscode.Webview) {
+  private restart(webview: vscode.Webview) {
     // Get workspace folder - use the first one if multiple are open
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -124,6 +127,57 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       // Still try to run the main command even if the port check fails
       const childProcess = require('child_process').spawn('mvn spring-boot:run', [], options);
       // ... rest of the event listeners for childProcess
+    });
+  }
+
+
+  private recompile(webview: vscode.Webview) {
+    // Get workspace folder - use the first one if multiple are open
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      webview.postMessage({ log: "\n❌ Error: No workspace folder is open. Please open a CAP project folder first.\n" });
+      return;
+    }
+    
+    // Use the first workspace folder as the project root
+    const projectRoot = workspaceFolders[0].uri.fsPath;
+    
+    // Execute the shell command in the project root directory
+    const options = { 
+      cwd: projectRoot,
+      shell: true,
+      env: {
+        ...process.env
+      }
+    };
+
+      
+    // Now start the Maven Spring Boot process
+    const childProcess = require('child_process').spawn('mvn compile -B', [], options);
+    
+    // Stream stdout in real-time
+    childProcess.stdout.on('data', (data: Buffer) => {
+      const output = data.toString();
+      webview.postMessage({ log: output });
+    });
+    
+    // Stream stderr in real-time 
+    childProcess.stderr.on('data', (data: Buffer) => {
+      const output = data.toString();
+      webview.postMessage({ log: output });
+    });
+    
+    // Handle process completion
+    childProcess.on('close', (code: number) => {
+      const exitMessage = code === 0 
+        ? "\n✅ Process completed successfully.\n" 
+        : `\n⚠️ Process exited with code ${code}.\n`;
+      webview.postMessage({ log: exitMessage });
+    });
+    
+    // Handle process errors
+    childProcess.on('error', (err: Error) => {
+      webview.postMessage({ log: `\n❌ Error: ${err.message}\n` });
     });
   }
 
@@ -210,7 +264,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             font-family: sans-serif;
             padding: 10px;
           }
-          #runButton {
+          .large-button {
             background-color: #007acc;
             color: white;
             font-size: 16px;
@@ -298,8 +352,11 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         </style>
       </head>
       <body>
-        <button id="runButton">
+        <button id="restartButton" class="large-button">
           (Re)Launch CAP App
+        </button>
+        <button id="recompileButton" class="large-button">
+          (Re)Compile CAP App
         </button>
         <div class="extension-tagline">
           Experimental CAP-in-the-Pocket Extension
@@ -310,13 +367,18 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
 
         <script>
           const vscode = acquireVsCodeApi();
-          const button = document.getElementById('runButton');
+          const restartButton = document.getElementById('restartButton');
+          const recompileButton = document.getElementById('recompileButton');
           const output = document.getElementById('output');
 
-          // Run Spring Boot button
-          button.onclick = () => {
+          restartButton.onclick = () => {
             output.textContent = "";
-            vscode.postMessage({ command: 'runSpringBoot' });
+            vscode.postMessage({ command: 'restart' });
+          };
+
+          recompileButton.onclick = () => {
+            output.textContent = "";
+            vscode.postMessage({ command: 'recompile' });
           };
 
           // URL buttons
