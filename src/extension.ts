@@ -151,6 +151,9 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       }
     };
 
+    webview.postMessage({
+      log: `\n▶️ Recompiling the CAP app, the Spring Boot Dev Tools should reload the Java part...\n\n`
+    });
       
     // Now start the Maven Spring Boot process
     const childProcess = require('child_process').spawn('mvn compile -B', [], options);
@@ -273,6 +276,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            margin-bottom: 5px;
           }
           .extension-tagline {
             margin: 12px 0;
@@ -295,7 +299,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             font-size: 14px;
           }
           #output {
-            margin-top: 20px;
+            margin-top: 15px;
             background: #1e1e1e;
             color: #d4d4d4;
             padding: 10px;
@@ -356,7 +360,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           (Re)Launch CAP App
         </button>
         <button id="recompileButton" class="large-button">
-          (Re)Compile CAP App
+          Recompile CAP App
         </button>
         <div class="extension-tagline">
           Experimental CAP-in-the-Pocket Extension
@@ -372,12 +376,10 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           const output = document.getElementById('output');
 
           restartButton.onclick = () => {
-            output.textContent = "";
             vscode.postMessage({ command: 'restart' });
           };
 
           recompileButton.onclick = () => {
-            output.textContent = "";
             vscode.postMessage({ command: 'recompile' });
           };
 
