@@ -256,6 +256,10 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       `;
     }
 
+    // Get proper URI for the logo image
+    const logoPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'sapmachine.svg');
+    const logoUri = this._view?.webview.asWebviewUri(logoPath);
+
     return `
       <html>
       <head>
@@ -350,6 +354,60 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
               font-size: 16px;
             }
           }
+          /* Modified lurking logo styling - removed hover animation */
+          .lurking-logo {
+            position: fixed;
+            bottom: -120px; /* Half hidden: adjust based on actual logo size */
+            right: 20px;
+            width: 180px;
+            height: 180px;
+            z-index: 1;
+            opacity: 0.7;
+            cursor: pointer; /* Add cursor pointer to indicate it's clickable */
+            transition: bottom 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+          }
+          
+          /* Removed the hover rule */
+          
+          .lurking-logo.revealed {
+            bottom: 0px; /* Fully revealed */
+            opacity: 1;
+          }
+          
+          /* Bubble animations */
+          .bubble {
+            position: absolute;
+            background-color: rgba(131, 220, 243, 0.6); /* Light blue color */
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 2; /* Make bubbles appear over the logo */
+          }
+          
+          @keyframes float {
+            0% {
+              transform: translateY(0);
+              opacity: 0;
+            }
+            20% {
+              opacity: 0.7;
+            }
+            100% {
+              transform: translateY(-100px);
+              opacity: 0;
+            }
+          }
+          
+          /* Modified bubble container to overlap with the logo */
+          .bubble-container {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 220px;
+            height: 220px;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 2; /* Position above the logo */
+          }
         </style>
       </head>
       <body>
@@ -365,13 +423,85 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         <pre id="output"></pre>
         
         ${urlButtonsHtml}
+        
+        <div class="bubble-container" id="bubbleContainer"></div>
+        <img src="${logoUri}" class="lurking-logo" id="sapLogo" alt="SAP Machine logo lurking" />
 
         <script>
           const vscode = acquireVsCodeApi();
           const restartButton = document.getElementById('restartButton');
           const recompileButton = document.getElementById('recompileButton');
           const output = document.getElementById('output');
+          const logo = document.getElementById('sapLogo');
+          const bubbleContainer = document.getElementById('bubbleContainer');
+          let revealed = false;
+          let bubbleInterval;
+          
+          // Logo click handler - no change here, just keep the click logic
+          logo.addEventListener('click', () => {
+            revealed = !revealed;
+            
+            if (revealed) {
+              logo.classList.add('revealed');
+              startBubbles();
+            } else {
+              logo.classList.remove('revealed');
+              stopBubbles();
+            }
+          });
+          
+          // Create and animate bubbles
+          function startBubbles() {
+            // Clear any existing interval
+            if (bubbleInterval) clearInterval(bubbleInterval);
+            
+            // Create new bubbles every 300ms
+            bubbleInterval = setInterval(() => {
+              if (!revealed) return;
+              
+              // Create 1-3 bubbles
+              for (let i = 0; i < Math.floor(1 + Math.random() * 2); i++) {
+                createBubble();
+              }
+            }, 300);
+          }
+          
+          function stopBubbles() {
+            if (bubbleInterval) {
+              clearInterval(bubbleInterval);
+              bubbleInterval = null;
+            }
+          }
+          
+          function createBubble() {
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            
+            // Random size between 5px and 15px
+            const size = 5 + Math.random() * 10;
+            bubble.style.width = \`\${size}px\`;
+            bubble.style.height = \`\${size}px\`;
+            
+            // Position randomly within container
+            // Adjusted to allow bubbles to overlap with the logo more
+            bubble.style.left = \`\${10 + Math.random() * 160}px\`;
+            bubble.style.bottom = \`\${10 + Math.random() * 50}px\`;
+            
+            // Random animation duration
+            const duration = 2 + Math.random() * 2;
+            bubble.style.animation = \`float \${duration}s ease-in-out\`;
+            
+            bubbleContainer.appendChild(bubble);
+            
+            // Remove bubble after animation completes
+            setTimeout(() => {
+              if (bubbleContainer.contains(bubble)) {
+                bubbleContainer.removeChild(bubble);
+              }
+            }, duration * 1000);
+          }
 
+          // Your existing event handlers
           restartButton.onclick = () => {
             vscode.postMessage({ command: 'restart' });
           };
