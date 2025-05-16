@@ -39,8 +39,41 @@
     "configuration": {
       "title": "CAP-in-the-Pocket",
       "properties": {
+        "cap-in-the-pocket.serverPort": {
+          "type": "number",
+          "default": 4004,
+          "description": "The port used by the CAP server"
+        },
+        "cap-in-the-pocket.killPortCommand": {
+          "type": "string",
+          "default": "(lsof -ti:${port} | xargs kill -9) || killall java || true",
+          "description": "Command to kill processes using the server port. Use '${port}' to reference the configured port."
+        },
+        "cap-in-the-pocket.runCommand": {
+          "type": "string",
+          "default": "mvn spring-boot:run -B",
+          "description": "Command to run the CAP application"
+        },
+        "cap-in-the-pocket.compileCommand": {
+          "type": "string",
+          "default": "mvn compile -B",
+          "description": "Command to compile the CAP application"
+        },
         "cap-in-the-pocket.urlButtons": {
           "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Button label"
+              },
+              "url": {
+                "type": "string",
+                "description": "URL to open"
+              }
+            }
+          },
           "default": [
             {
               "label": "Travel Processor",
@@ -51,20 +84,22 @@
               "url": "http://localhost:4004/travel_analytics/dist/index.html"
             }
           ],
-          "items": {
-            "type": "object",
-            "properties": {
-              "label": {
-                "type": "string",
-                "description": "Button label"
-              },
-              "url": {
-                "type": "string",
-                "description": "URL to launch"
-              }
-            }
+          "description": "Custom URL buttons to display in the panel"
+        },
+        "cap-in-the-pocket.enableLogFiltering": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable formatting and filtering of verbose log output"
+        },
+        "cap-in-the-pocket.logFilterRules": {
+          "type": "object",
+          "default": {
+            "shortenTimestamps": true,
+            "shortenClassNames": true,
+            "hideThreadInfo": true,
+            "useEmojis": true
           },
-          "description": "List of URL buttons to display"
+          "description": "Configure specific log filtering rules"
         }
       }
     }

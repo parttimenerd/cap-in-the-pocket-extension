@@ -64,9 +64,16 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Use the first workspace folder as the project root
     const projectRoot = workspaceFolders[0].uri.fsPath;
     
+    // Get configured commands from settings
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
+    const port = config.get('serverPort') as number || 4004;
+    const killPortCommand = config.get('killPortCommand') as string || 
+      `(lsof -ti:${port} | xargs kill -9) || killall java || true`;
+    const runCommand = config.get('runCommand') as string || 'mvn spring-boot:run -B';
+    
     // Update webview UI to show "running" state with the correct folder
     webview.postMessage({
-      log: `\n▶️ Running in ${projectRoot}:\n    Stopping processes on port 4004 and starting CAP app...\n\n`
+      log: `\n▶️ Running in ${projectRoot}:\n    Stopping processes on port ${port} and starting CAP app...\n\n`
     });
 
     // Execute the shell command in the project root directory
@@ -78,9 +85,9 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       }
     };
     
-    // First, kill any processes using port 4004
+    // First, kill any processes using the configured port
     const killPortProcess = require('child_process').spawn(
-      '(lsof -ti:4004 | xargs kill -9) || killall java || true', 
+      killPortCommand, 
       [], 
       options
     );
@@ -88,23 +95,25 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     killPortProcess.on('close', (code: number) => {
       webview.postMessage({ 
         log: code === 0 
-          ? "✅ Stopped existing processes using port 4004\n\n" 
-          : "ℹ️ No processes were using port 4004\n\n" 
+          ? `✅ Stopped existing processes using port ${port}\n\n` 
+          : `ℹ️ No processes were using port ${port}\n\n` 
       });
       
-      // Now start the Maven Spring Boot process
-      const childProcess = require('child_process').spawn('mvn spring-boot:run -B', [], options);
+      // Now start the configured run process
+      const childProcess = require('child_process').spawn(runCommand, [], options);
       
       // Stream stdout in real-time
       childProcess.stdout.on('data', (data: Buffer) => {
-        const output = data.toString();
-        webview.postMessage({ log: output });
+        const rawOutput = data.toString();
+        const formattedOutput = this.formatLogOutput(rawOutput);
+        webview.postMessage({ log: formattedOutput });
       });
       
       // Stream stderr in real-time 
       childProcess.stderr.on('data', (data: Buffer) => {
-        const output = data.toString();
-        webview.postMessage({ log: output });
+        const rawOutput = data.toString();
+        const formattedOutput = this.formatLogOutput(rawOutput);
+        webview.postMessage({ log: formattedOutput });
       });
       
       // Handle process completion
@@ -123,7 +132,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     
     // Handle errors from the kill port process
     killPortProcess.on('error', (err: Error) => {
-      webview.postMessage({ log: `\n⚠️ Warning: Could not check for processes on port 4004: ${err.message}\n` });
+      webview.postMessage({ log: `\n⚠️ Warning: Could not check for processes on port ${port}: ${err.message}\n` });
     });
   }
 
@@ -139,6 +148,10 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Use the first workspace folder as the project root
     const projectRoot = workspaceFolders[0].uri.fsPath;
     
+    // Get configured commands from settings
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
+    const compileCommand = config.get('compileCommand') as string || 'mvn compile -B';
+    
     // Execute the shell command in the project root directory
     const options = { 
       cwd: projectRoot,
@@ -152,19 +165,21 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       log: `\n▶️ Recompiling the CAP app, the Spring Boot Dev Tools should reload the Java part...\n\n`
     });
       
-    // Now start the Maven Spring Boot process
-    const childProcess = require('child_process').spawn('mvn compile -B', [], options);
+    // Now start the configured compile process
+    const childProcess = require('child_process').spawn(compileCommand, [], options);
     
     // Stream stdout in real-time
     childProcess.stdout.on('data', (data: Buffer) => {
-      const output = data.toString();
-      webview.postMessage({ log: output });
+      const rawOutput = data.toString();
+      const formattedOutput = this.formatLogOutput(rawOutput);
+      webview.postMessage({ log: formattedOutput });
     });
     
     // Stream stderr in real-time 
     childProcess.stderr.on('data', (data: Buffer) => {
-      const output = data.toString();
-      webview.postMessage({ log: output });
+      const rawOutput = data.toString();
+      const formattedOutput = this.formatLogOutput(rawOutput);
+      webview.postMessage({ log: formattedOutput });
     });
     
     // Handle process completion
@@ -308,7 +323,64 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             overflow-y: auto;
             border-radius: 4px;
             font-family: monospace;
+            line-height: 1;
+            font-size: 13px;
           }
+          
+          .timestamp {
+            color: #8a8a8a;
+            margin-right: 0px;
+          }
+          
+          .log-level {
+            display: inline-block;
+            width: 5px;        /* Fixed width for all emoji icons */
+            text-align: center; /* Center the emoji within its container */
+            margin-right: 5px;
+          }
+          
+          .component-name {
+            color: #569cd6;
+            font-weight: bold;
+            display: inline-block;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: hide;
+            vertical-align: bottom;
+          }
+          
+          .maven-line {
+            color: #b0b0b0;
+            font-size: 0.95em;
+          }
+        
+          @media (max-width: 320px) {
+            .component-name {
+              max-width: 60px; /* About 5 characters */
+            }
+            
+            #output {
+              font-size: 12px;
+            }
+            
+            .timestamp {
+              font-size: 0.9em;
+            }
+          }
+          
+          @media (max-width: 280px) {
+            .component-name {
+              max-width: 40px; /* About 3 characters */
+            }
+          }
+
+          @media (max-width: 200px) {
+            .component-name {
+              max-width: 20px; /* About one character */
+            }
+          }
+
           .url-buttons {
             margin-top: 20px;
           }
@@ -521,7 +593,17 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           // Listen for messages from the extension
           window.addEventListener('message', event => {
             if (event.data.log) {
-              output.textContent += event.data.log;
+              // Check if the log content appears to be HTML
+              if (event.data.log.includes('<span') || event.data.log.includes('<div')) {
+                // Append as HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = event.data.log;
+                output.appendChild(tempDiv);
+              } else {
+                // Legacy plaintext append
+                const textNode = document.createTextNode(event.data.log);
+                output.appendChild(textNode);
+              }
               output.scrollTop = output.scrollHeight;
             }
           });
@@ -529,6 +611,87 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       </body>
       </html>
     `;
+  }
+
+  private formatLogOutput(output: string): string {
+    // Get configuration for log formatting
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
+    const enableLogFiltering = config.get('enableLogFiltering') as boolean || true;
+    
+    if (!enableLogFiltering) {
+      return output; // Return unmodified if filtering is disabled
+    }
+    
+    // Split output into lines for processing
+    const lines = output.split('\n');
+    const formattedLines = lines.map(line => {
+      // Skip empty lines
+      if (!line.trim()) {
+        return line;
+      }
+      
+      // Special handling for Maven's Spring Boot ASCII art
+      if (line.includes('____') || line.includes('\\/') || line.includes('/\\\\') || 
+          line.includes('( ( )') || line.includes("'  |") || line.includes(' ====')){
+        return line; // Keep Spring Boot ASCII art untouched
+      }
+      
+      // Spring Boot version line
+      if (line.includes(':: Spring Boot ::')) {
+        return `\n${line}\n`; // Add spacing around Spring Boot version line
+      }
+      
+      // Format Spring Boot log lines
+      if (line.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d+[+-]\d{2}:\d{2}\s+\w+\s+\d+\s+---/)) {
+        // Extract just the time portion from ISO timestamp (HH:MM:SS)
+        const timeMatch = line.match(/T(\d{2}:\d{2}:\d{2})/);
+        const timeString = timeMatch ? timeMatch[1] : '';
+        
+        // Get log level and convert to emoji
+        let logLevel = '💡';
+        if (line.includes(' INFO ')) logLevel = '💡';
+        else if (line.includes(' WARN ')) logLevel = '⚠️';
+        else if (line.includes(' ERROR ')) logLevel = '❌';
+        else if (line.includes(' DEBUG ')) logLevel = '🔍';
+        
+        // Extract class/component name - shorter version
+        const componentMatch = line.match(/([a-z]+\.)+([A-Z][a-zA-Z0-9_$]+)(\s+|\s*:)/);
+        let component = '';
+        if (componentMatch) {
+          component = componentMatch[2];
+          // Use HTML with a special class
+          component = `<span class="component-name">${component}</span>`;
+        }
+        
+        // Extract actual message
+        const messageMatch = line.match(/\s+:\s+(.+)$/);
+        const message = messageMatch ? messageMatch[1] : line;
+        
+        // Format: [time] emoji component: message
+        return `<div class="log-line"><span class="timestamp">[${timeString}]</span> <span class="log-level">${logLevel}</span> ${component}: <span class="message">${message}</span></div>`;
+      }
+      
+      // Format Maven build output - keep emoji but make more compact
+      if (line.includes('[INFO]') || line.includes('[WARNING]') || line.includes('[ERROR]')) {
+        let simplified = line;
+        
+        // Replace Maven log indicators with emoji
+        simplified = simplified.replace(/\[INFO\]/, '📦')
+                            .replace(/\[WARNING\]/, '⚠️')
+                            .replace(/\[ERROR\]/, '❌');
+        
+        // Remove common redundant parts in Maven output
+        simplified = simplified.replace(/ \(default-[a-z]+\)/g, '');
+        simplified = simplified.replace(/--- [a-z]+:[0-9.]+:[a-z]+ /g, '--- ');
+        
+        return `<div class="maven-line">${simplified}</div>`;
+      }
+      
+      // Return unmodified line if no patterns match
+      return line;
+    });
+    
+    return formattedLines.join('\n');
   }
 }
 
