@@ -74,16 +74,7 @@
               }
             }
           },
-          "default": [
-            {
-              "label": "Travel Processor",
-              "url": "http://localhost:4004/travel_processor/dist/index.html"
-            },
-            {
-              "label": "Travel Analytics",
-              "url": "http://localhost:4004/travel_analytics/dist/index.html"
-            }
-          ],
+          "default": [],
           "description": "Custom URL buttons to display in the panel"
         },
         "cap-in-the-pocket.enableLogFiltering": {
@@ -100,6 +91,11 @@
             "useEmojis": true
           },
           "description": "Configure specific log filtering rules"
+        },
+        "cap-in-the-pocket.useDistUrl": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use /dist/ URLs instead of /webapp/ URLs for discovered applications"
         }
       }
     }

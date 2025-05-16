@@ -47,43 +47,7 @@ Usage
 1. After installation, you'll see a new "CAP App" icon in the activity bar
 2. Click it to open the "CAP-in-the-Pocket" panel
 3. Click the "(Re)Launch CAP App" button to start your application
-4. Access your application's endpoints using the buttons below the console output
-
-Configuring Application Links
------------------------------
-
-You can customize the application links that appear below the console output. These links provide quick access to different parts of your CAP application.
-
-If you don't configure them,
-default links for the CAP-in-the-Pocket [SFlight](https://github.com/SAP-samples/cap-sflight)
-demo are used (as seen below).
-
-### Method 1: Using VS Code Settings UI
-
-1. Open VS Code settings (File > Preferences > Settings)
-2. Search for "CAP-in-the-Pocket"
-3. Find the "cap-in-the-pocket.urlButtons" setting
-4. Click "Edit in settings.json"
-5. Modify the JSON array to add, edit, or remove entries
-
-### Method 2: Directly Editing settings.json
-
-1. Open your VS Code settings.json file (Ctrl+Shift+P > "Preferences: Open Settings (JSON)")
-2. Add or modify the following configuration:
-An example is given for [CAP SFlight](https://github.com/SAP-samples/cap-sflight)
-
-```json
-"cap-in-the-pocket.urlButtons": [
-  {
-    "label": "Travel Processor",
-    "url": "http://localhost:4004/travel_processor/dist/index.html"
-  },
-  {
-    "label": "Travel Analytics",
-    "url": "http://localhost:4004/travel_analytics/dist/index.html"
-  }
-]
-```
+4. Click the application end-point links
 
 **Notes**
 

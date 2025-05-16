@@ -1,5 +1,212 @@
 import * as vscode from "vscode";
 import { exec } from "child_process";
+import * as http from "http";
+import * as https from "https";
+
+interface WebAppLink {
+  label: string;
+  url: string;
+  originalPath: string;
+}
+
+class WebAppDiscovery {
+  private static instance: WebAppDiscovery;
+  private webApps: WebAppLink[] = [];
+  private scanInterval: NodeJS.Timeout | null = null;
+  private lastScanTimestamp: number = 0;
+  private scanning: boolean = false;
+  private listeners: ((apps: WebAppLink[]) => void)[] = [];
+
+  private constructor() {}
+
+  public static getInstance(): WebAppDiscovery {
+    if (!WebAppDiscovery.instance) {
+      WebAppDiscovery.instance = new WebAppDiscovery();
+    }
+    return WebAppDiscovery.instance;
+  }
+
+  public getWebApps(): WebAppLink[] {
+    return [...this.webApps];
+  }
+
+  public addChangeListener(listener: (apps: WebAppLink[]) => void): void {
+    this.listeners.push(listener);
+  }
+
+  public removeChangeListener(listener: (apps: WebAppLink[]) => void): void {
+    const index = this.listeners.indexOf(listener);
+    if (index !== -1) {
+      this.listeners.splice(index, 1);
+    }
+  }
+
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      listener(this.getWebApps());
+    }
+  }
+
+  public startScanning(port: number = 4004): void {
+    if (this.scanInterval) {
+      clearInterval(this.scanInterval);
+    }
+
+    // Initial scan
+    this.scanForWebApps(port);
+
+    // Set up interval for subsequent scans (every 2 seconds)
+    this.scanInterval = setInterval(() => {
+      this.scanForWebApps(port);
+    }, 2000);
+  }
+
+  public stopScanning(): void {
+    if (this.scanInterval) {
+      clearInterval(this.scanInterval);
+      this.scanInterval = null;
+    }
+  }
+
+  private async scanForWebApps(port: number): Promise<void> {
+    // Prevent concurrent scans
+    if (this.scanning) {
+      return;
+    }
+
+    // Throttle scanning to prevent excessive requests
+    const now = Date.now();
+    if (now - this.lastScanTimestamp < 1000) {
+      return;
+    }
+
+    this.scanning = true;
+    this.lastScanTimestamp = now;
+
+    try {
+      const rootUrl = `http://localhost:${port}`;
+      const html = await this.fetchUrl(rootUrl);
+      const discoveredApps = this.parseWebAppsFromHtml(html, rootUrl);
+      console.log("Discovered web apps:", discoveredApps);
+      // Check if the discovered apps are different from what we already have
+      const hasChanged = this.hasWebAppsChanged(discoveredApps);
+
+      if (hasChanged) {
+        // Update cache with new web apps
+        this.webApps = discoveredApps;
+        this.notifyListeners();
+      }
+    } catch (error) {
+      // Server may not be running - clear apps if we had any
+      if (this.webApps.length > 0) {
+        this.webApps = [];
+        this.notifyListeners();
+      }
+    } finally {
+      this.scanning = false;
+    }
+  }
+
+  private hasWebAppsChanged(newApps: WebAppLink[]): boolean {
+    if (this.webApps.length !== newApps.length) {
+      return true;
+    }
+
+    for (let i = 0; i < this.webApps.length; i++) {
+      if (this.webApps[i].url !== newApps[i].url ||
+          this.webApps[i].label !== newApps[i].label) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private parseWebAppsFromHtml(html: string, rootUrl: string): WebAppLink[] {
+    const webApps: WebAppLink[] = [];
+
+    // Get configuration preference for dist vs webapp URLs
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
+    const useDistUrl = config.get('useDistUrl') as boolean ?? true; // Default to true
+
+    // Regular expression to find web application links
+    // Look for links inside the Web Applications section
+    const webAppSectionRegex = /<h2>Web Applications<\/h2>\s*<ul>([\s\S]*?)<\/ul>/i;
+    const webAppSection = webAppSectionRegex.exec(html);
+
+    if (webAppSection && webAppSection[1]) {
+      // Find all list items with links
+      const webAppLinkRegex = /<li>\s*<a href="([^"]+)"><span>([^<]+)<\/span><\/a>\s*<\/li>/g;
+      let match;
+
+      while ((match = webAppLinkRegex.exec(webAppSection[1])) !== null) {
+        const path = match[1]; // /app_name/webapp/index.html
+        const fullPath = match[2]; // /app_name/webapp
+
+        // Extract app name from path
+        const appNameMatch = /\/([^\/]+)\/webapp/.exec(path);
+        if (appNameMatch && appNameMatch[1]) {
+          const appName = appNameMatch[1];
+
+          // Convert snake_case to Title Case
+          const label = this.snakeCaseToTitleCase(appName);
+
+          // Apply the URL path based on configuration
+          let url = `${rootUrl}${path}`; // Default is webapp
+
+          // Use /dist/ instead of /webapp/ if configured
+          if (useDistUrl) {
+            url = url.replace('/webapp/', '/dist/');
+          }
+
+          webApps.push({
+            label,
+            url,
+            originalPath: path
+          });
+        }
+      }
+    }
+
+    return webApps;
+  }
+
+  private snakeCaseToTitleCase(text: string): string {
+    return text.split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  private fetchUrl(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const requester = url.startsWith('https') ? https : http;
+
+      // Create basic auth credentials (username: "authenticated", password: "")
+      const auth = Buffer.from('authenticated:').toString('base64');
+
+      // Create request options with auth header
+      const options = {
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      };
+
+      const request = requester.get(url, options, response => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to fetch ${url}: ${response.statusCode}`));
+          return;
+        }
+
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => resolve(data));
+      });
+
+      request.on('error', error => reject(error));
+      request.end();
+    });
+  }
+}
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Activating CAP-in-the-Pocket extension...");
@@ -26,14 +233,22 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         }
       })
     );
+
+    // Start listening for web app changes
+    const webAppDiscovery = WebAppDiscovery.getInstance();
+    webAppDiscovery.addChangeListener(() => {
+      if (this._view) {
+        this._view.webview.html = this.getWebviewContent();
+      }
+    });
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
-    
+
     // Set up the webview content
-    webviewView.webview.options = { 
-      enableScripts: true 
+    webviewView.webview.options = {
+      enableScripts: true
     };
     webviewView.webview.html = this.getWebviewContent();
 
@@ -51,6 +266,11 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           break;
       }
     });
+
+    // Start scanning for web apps
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
+    const port = config.get('serverPort') as number || 4004;
+    WebAppDiscovery.getInstance().startScanning(port);
   }
 
   private restart(webview: vscode.Webview) {
@@ -60,76 +280,76 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       webview.postMessage({ log: "\n❌ Error: No workspace folder is open. Please open a CAP project folder first.\n" });
       return;
     }
-    
+
     // Use the first workspace folder as the project root
     const projectRoot = workspaceFolders[0].uri.fsPath;
-    
+
     // Get configured commands from settings
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const port = config.get('serverPort') as number || 4004;
-    const killPortCommand = config.get('killPortCommand') as string || 
+    const killPortCommand = config.get('killPortCommand') as string ||
       `(lsof -ti:${port} | xargs kill -9) || killall java || true`;
     const runCommand = config.get('runCommand') as string || 'mvn spring-boot:run -B';
-    
+
     // Update webview UI to show "running" state with the correct folder
     webview.postMessage({
       log: `\n▶️ Running in ${projectRoot}:\n    Stopping processes on port ${port} and starting CAP app...\n\n`
     });
 
     // Execute the shell command in the project root directory
-    const options = { 
+    const options = {
       cwd: projectRoot,
       shell: true,
       env: {
         ...process.env
       }
     };
-    
+
     // First, kill any processes using the configured port
     const killPortProcess = require('child_process').spawn(
-      killPortCommand, 
-      [], 
+      killPortCommand,
+      [],
       options
     );
-    
+
     killPortProcess.on('close', (code: number) => {
-      webview.postMessage({ 
-        log: code === 0 
-          ? `✅ Stopped existing processes using port ${port}\n\n` 
-          : `ℹ️ No processes were using port ${port}\n\n` 
+      webview.postMessage({
+        log: code === 0
+          ? `✅ Stopped existing processes using port ${port}\n\n`
+          : `ℹ️ No processes were using port ${port}\n\n`
       });
-      
+
       // Now start the configured run process
       const childProcess = require('child_process').spawn(runCommand, [], options);
-      
+
       // Stream stdout in real-time
       childProcess.stdout.on('data', (data: Buffer) => {
         const rawOutput = data.toString();
         const formattedOutput = this.formatLogOutput(rawOutput);
         webview.postMessage({ log: formattedOutput });
       });
-      
-      // Stream stderr in real-time 
+
+      // Stream stderr in real-time
       childProcess.stderr.on('data', (data: Buffer) => {
         const rawOutput = data.toString();
         const formattedOutput = this.formatLogOutput(rawOutput);
         webview.postMessage({ log: formattedOutput });
       });
-      
+
       // Handle process completion
       childProcess.on('close', (code: number) => {
-        const exitMessage = code === 0 
-          ? "\n✅ Process completed successfully.\n" 
+        const exitMessage = code === 0
+          ? "\n✅ Process completed successfully.\n"
           : `\n⚠️ Process exited with code ${code}.\n`;
         webview.postMessage({ log: exitMessage });
       });
-      
+
       // Handle process errors
       childProcess.on('error', (err: Error) => {
         webview.postMessage({ log: `\n❌ Error: ${err.message}\n` });
       });
     });
-    
+
     // Handle errors from the kill port process
     killPortProcess.on('error', (err: Error) => {
       webview.postMessage({ log: `\n⚠️ Warning: Could not check for processes on port ${port}: ${err.message}\n` });
@@ -144,16 +364,16 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       webview.postMessage({ log: "\n❌ Error: No workspace folder is open. Please open a CAP project folder first.\n" });
       return;
     }
-    
+
     // Use the first workspace folder as the project root
     const projectRoot = workspaceFolders[0].uri.fsPath;
-    
+
     // Get configured commands from settings
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const compileCommand = config.get('compileCommand') as string || 'mvn compile -B';
-    
+
     // Execute the shell command in the project root directory
-    const options = { 
+    const options = {
       cwd: projectRoot,
       shell: true,
       env: {
@@ -164,32 +384,32 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     webview.postMessage({
       log: `\n▶️ Recompiling the CAP app, the Spring Boot Dev Tools should reload the Java part...\n\n`
     });
-      
+
     // Now start the configured compile process
     const childProcess = require('child_process').spawn(compileCommand, [], options);
-    
+
     // Stream stdout in real-time
     childProcess.stdout.on('data', (data: Buffer) => {
       const rawOutput = data.toString();
       const formattedOutput = this.formatLogOutput(rawOutput);
       webview.postMessage({ log: formattedOutput });
     });
-    
-    // Stream stderr in real-time 
+
+    // Stream stderr in real-time
     childProcess.stderr.on('data', (data: Buffer) => {
       const rawOutput = data.toString();
       const formattedOutput = this.formatLogOutput(rawOutput);
       webview.postMessage({ log: formattedOutput });
     });
-    
+
     // Handle process completion
     childProcess.on('close', (code: number) => {
-      const exitMessage = code === 0 
-        ? "\n✅ Process completed successfully.\n" 
+      const exitMessage = code === 0
+        ? "\n✅ Process completed successfully.\n"
         : `\n⚠️ Process exited with code ${code}.\n`;
       webview.postMessage({ log: exitMessage });
     });
-    
+
     // Handle process errors
     childProcess.on('error', (err: Error) => {
       webview.postMessage({ log: `\n❌ Error: ${err.message}\n` });
@@ -199,10 +419,10 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
   private openUrl(url: string) {
     // Use the shell directly to open URLs, which may prevent reload issues on mobile
     const platform = process.platform;
-    
+
     // Choose the appropriate open command based on platform
     let openCommand: string;
-    
+
     switch (platform) {
       case 'darwin':
         // macOS
@@ -217,7 +437,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         openCommand = `open "${url}"`;
         break;
     }
-    
+
     // Execute the shell command to open the URL
     exec(openCommand, (error) => {
       if (error) {
@@ -231,23 +451,23 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Get the configured URL buttons
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     let urlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
-    
-    // Check if we're using default buttons
-    const usingDefaultButtons = !urlButtons || urlButtons.length === 0;
-    
-    // If no buttons are configured, use default buttons
-    if (usingDefaultButtons) {
-      urlButtons = [
-        {
-          "label": "Travel Processor",
-          "url": "http://localhost:4004/travel_processor/dist/index.html"
-        },
-        {
-          "label": "Travel Analytics",
-          "url": "http://localhost:4004/travel_analytics/dist/index.html"
-        }
-      ];
+
+
+    // Check for discovered web apps
+    const discoveredApps = WebAppDiscovery.getInstance().getWebApps();
+
+    urlButtons = discoveredApps;
+
+    let automaticallyDiscoveredApps = discoveredApps.length > 0;
+
+    // add buttons from config
+    const configuredUrlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
+    if (configuredUrlButtons != null && configuredUrlButtons.length > 0) {
+      urlButtons = configuredUrlButtons;
+      console.log("Configured URL buttons:", urlButtons);
+      automaticallyDiscoveredApps = false;
     }
+    console.log("Automatically discovered apps:", automaticallyDiscoveredApps);
 
     // Generate button HTML
     let urlButtonsHtml = '';
@@ -262,9 +482,9 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
               </button>
             `).join('')}
           </div>
-          ${usingDefaultButtons ? `
+          ${automaticallyDiscoveredApps ? `
           <p class="configuration-hint">
-            These are default buttons. You can configure custom links in VS Code settings.
+            Automatically discovered application links.
           </p>
           ` : ''}
         </div>
@@ -326,19 +546,19 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             line-height: 1;
             font-size: 13px;
           }
-          
+
           .timestamp {
             color: #8a8a8a;
             margin-right: 0px;
           }
-          
+
           .log-level {
             display: inline-block;
             width: 5px;        /* Fixed width for all emoji icons */
             text-align: center; /* Center the emoji within its container */
             margin-right: 5px;
           }
-          
+
           .component-name {
             color: #569cd6;
             font-weight: bold;
@@ -349,26 +569,26 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             text-overflow: hide;
             vertical-align: bottom;
           }
-          
+
           .maven-line {
             color: #b0b0b0;
             font-size: 0.95em;
           }
-        
+
           @media (max-width: 320px) {
             .component-name {
               max-width: 60px; /* About 5 characters */
             }
-            
+
             #output {
               font-size: 12px;
             }
-            
+
             .timestamp {
               font-size: 0.9em;
             }
           }
-          
+
           @media (max-width: 280px) {
             .component-name {
               max-width: 40px; /* About 3 characters */
@@ -438,14 +658,14 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             cursor: pointer; /* Add cursor pointer to indicate it's clickable */
             transition: bottom 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
           }
-          
+
           /* Removed the hover rule */
-          
+
           .lurking-logo.revealed {
             bottom: 0px; /* Fully revealed */
             opacity: 1;
           }
-          
+
           /* Bubble animations */
           .bubble {
             position: absolute;
@@ -454,7 +674,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             pointer-events: none;
             z-index: 2; /* Make bubbles appear over the logo */
           }
-          
+
           @keyframes float {
             0% {
               transform: translateY(0);
@@ -468,7 +688,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
               opacity: 0;
             }
           }
-          
+
           /* Modified bubble container to overlap with the logo */
           .bubble-container {
             position: fixed;
@@ -493,9 +713,9 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           Experimental CAP-in-the-Pocket Extension
         </div>
         <pre id="output"></pre>
-        
+
         ${urlButtonsHtml}
-        
+
         <div class="bubble-container" id="bubbleContainer"></div>
         <img src="${logoUri}" class="lurking-logo" id="sapLogo" alt="SAP Machine logo lurking" />
 
@@ -508,11 +728,11 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           const bubbleContainer = document.getElementById('bubbleContainer');
           let revealed = false;
           let bubbleInterval;
-          
+
           // Logo click handler - no change here, just keep the click logic
           logo.addEventListener('click', () => {
             revealed = !revealed;
-            
+
             if (revealed) {
               logo.classList.add('revealed');
               startBubbles();
@@ -521,50 +741,50 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
               stopBubbles();
             }
           });
-          
+
           // Create and animate bubbles
           function startBubbles() {
             // Clear any existing interval
             if (bubbleInterval) clearInterval(bubbleInterval);
-            
+
             // Create new bubbles every 300ms
             bubbleInterval = setInterval(() => {
               if (!revealed) return;
-              
+
               // Create 1-3 bubbles
               for (let i = 0; i < Math.floor(1 + Math.random() * 2); i++) {
                 createBubble();
               }
             }, 300);
           }
-          
+
           function stopBubbles() {
             if (bubbleInterval) {
               clearInterval(bubbleInterval);
               bubbleInterval = null;
             }
           }
-          
+
           function createBubble() {
             const bubble = document.createElement('div');
             bubble.className = 'bubble';
-            
+
             // Random size between 5px and 15px
             const size = 5 + Math.random() * 10;
             bubble.style.width = \`\${size}px\`;
             bubble.style.height = \`\${size}px\`;
-            
+
             // Position randomly within container
             // Adjusted to allow bubbles to overlap with the logo more
             bubble.style.left = \`\${10 + Math.random() * 160}px\`;
             bubble.style.bottom = \`\${10 + Math.random() * 50}px\`;
-            
+
             // Random animation duration
             const duration = 2 + Math.random() * 2;
             bubble.style.animation = \`float \${duration}s ease-in-out\`;
-            
+
             bubbleContainer.appendChild(bubble);
-            
+
             // Remove bubble after animation completes
             setTimeout(() => {
               if (bubbleContainer.contains(bubble)) {
@@ -617,11 +837,11 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Get configuration for log formatting
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const enableLogFiltering = config.get('enableLogFiltering') as boolean || true;
-    
+
     if (!enableLogFiltering) {
       return output; // Return unmodified if filtering is disabled
     }
-    
+
     // Split output into lines for processing
     const lines = output.split('\n');
     const formattedLines = lines.map(line => {
@@ -629,31 +849,31 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       if (!line.trim()) {
         return line;
       }
-      
+
       // Special handling for Maven's Spring Boot ASCII art
-      if (line.includes('____') || line.includes('\\/') || line.includes('/\\\\') || 
+      if (line.includes('____') || line.includes('\\/') || line.includes('/\\\\') ||
           line.includes('( ( )') || line.includes("'  |") || line.includes(' ====')){
         return line; // Keep Spring Boot ASCII art untouched
       }
-      
+
       // Spring Boot version line
       if (line.includes(':: Spring Boot ::')) {
         return `\n${line}\n`; // Add spacing around Spring Boot version line
       }
-      
+
       // Format Spring Boot log lines
       if (line.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d+[+-]\d{2}:\d{2}\s+\w+\s+\d+\s+---/)) {
         // Extract just the time portion from ISO timestamp (HH:MM:SS)
         const timeMatch = line.match(/T(\d{2}:\d{2}:\d{2})/);
         const timeString = timeMatch ? timeMatch[1] : '';
-        
+
         // Get log level and convert to emoji
         let logLevel = '💡';
         if (line.includes(' INFO ')) logLevel = '💡';
         else if (line.includes(' WARN ')) logLevel = '⚠️';
         else if (line.includes(' ERROR ')) logLevel = '❌';
         else if (line.includes(' DEBUG ')) logLevel = '🔍';
-        
+
         // Extract class/component name - shorter version
         const componentMatch = line.match(/([a-z]+\.)+([A-Z][a-zA-Z0-9_$]+)(\s+|\s*:)/);
         let component = '';
@@ -662,37 +882,40 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           // Use HTML with a special class
           component = `<span class="component-name">${component}</span>`;
         }
-        
+
         // Extract actual message
         const messageMatch = line.match(/\s+:\s+(.+)$/);
         const message = messageMatch ? messageMatch[1] : line;
-        
+
         // Format: [time] emoji component: message
         return `<div class="log-line"><span class="timestamp">[${timeString}]</span> <span class="log-level">${logLevel}</span> ${component}: <span class="message">${message}</span></div>`;
       }
-      
+
       // Format Maven build output - keep emoji but make more compact
       if (line.includes('[INFO]') || line.includes('[WARNING]') || line.includes('[ERROR]')) {
         let simplified = line;
-        
+
         // Replace Maven log indicators with emoji
         simplified = simplified.replace(/\[INFO\]/, '📦')
                             .replace(/\[WARNING\]/, '⚠️')
                             .replace(/\[ERROR\]/, '❌');
-        
+
         // Remove common redundant parts in Maven output
         simplified = simplified.replace(/ \(default-[a-z]+\)/g, '');
         simplified = simplified.replace(/--- [a-z]+:[0-9.]+:[a-z]+ /g, '--- ');
-        
+
         return `<div class="maven-line">${simplified}</div>`;
       }
-      
+
       // Return unmodified line if no patterns match
       return line;
     });
-    
+
     return formattedLines.join('\n');
   }
 }
 
-export function deactivate() {}
+export function deactivate() {
+  // Stop the web app discovery scanning
+  WebAppDiscovery.getInstance().stopScanning();
+}
