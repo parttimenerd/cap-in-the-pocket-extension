@@ -124,9 +124,6 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Handle errors from the kill port process
     killPortProcess.on('error', (err: Error) => {
       webview.postMessage({ log: `\n⚠️ Warning: Could not check for processes on port 4004: ${err.message}\n` });
-      // Still try to run the main command even if the port check fails
-      const childProcess = require('child_process').spawn('mvn spring-boot:run', [], options);
-      // ... rest of the event listeners for childProcess
     });
   }
 
