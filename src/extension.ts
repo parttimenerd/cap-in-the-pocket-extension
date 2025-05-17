@@ -729,13 +729,28 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           let revealed = false;
           let bubbleInterval;
 
-          // Logo click handler - no change here, just keep the click logic
+          let hideLogoTimer;
+
           logo.addEventListener('click', () => {
             revealed = !revealed;
+
+            // Clear any existing timer
+            if (hideLogoTimer) {
+              clearTimeout(hideLogoTimer);
+              hideLogoTimer = null;
+            }
 
             if (revealed) {
               logo.classList.add('revealed');
               startBubbles();
+
+              // Set timer to auto-hide after 5 seconds
+              hideLogoTimer = setTimeout(() => {
+                revealed = false;
+                logo.classList.remove('revealed');
+                stopBubbles();
+                hideLogoTimer = null;
+              }, 5000);
             } else {
               logo.classList.remove('revealed');
               stopBubbles();
