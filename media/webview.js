@@ -219,9 +219,10 @@
     const searchIcon = document.createElement('button');
     searchIcon.className = 'search-icon';
     searchIcon.innerHTML = '🔍';
-    searchIcon.title = 'Search logs (Ctrl+F)';
+    searchIcon.title = 'Search logs';
     searchIcon.setAttribute('aria-label', 'Search logs');
     output.appendChild(searchIcon);
+    
     // Create search container (initially hidden)
     const searchContainer = document.createElement('div');
     searchContainer.className = 'search-container';
@@ -230,6 +231,8 @@
       <span id="searchResults">0/0</span>
       <button id="nextMatch" title="Next match">↑</button>
       <button id="prevMatch" title="Previous match">↓</button>
+      <button id="toggleCase" title="Toggle case sensitivity">Aa</button>
+      <button id="toggleRegex" title="Toggle regex mode">.*</button>
       <button id="closeSearch" title="Close search">✕</button>
     `;
     
@@ -241,11 +244,17 @@
     const searchResults = document.getElementById('searchResults');
     const prevMatch = document.getElementById('prevMatch');
     const nextMatch = document.getElementById('nextMatch');
+    const toggleCase = document.getElementById('toggleCase');
+    const toggleRegex = document.getElementById('toggleRegex');
     const closeSearch = document.getElementById('closeSearch');
     
     // Search state
-    let matches = [];
-    let currentMatchIndex = -1;
+    const searchState = {
+      matches: [],
+      currentMatchIndex: -1,
+      caseSensitive: false,
+      regex: false
+    };
     
     // Show/hide search functionality
     function showSearch() {
@@ -259,8 +268,8 @@
       clearHighlights();
       searchInput.value = '';
       searchResults.textContent = '0/0';
-      matches = [];
-      currentMatchIndex = -1;
+      searchState.matches = [];
+      searchState.currentMatchIndex = -1;
       searchIcon.style.display = 'flex';
     }
     
@@ -274,6 +283,20 @@
     prevMatch.addEventListener('click', () => navigateMatches(-1));
     nextMatch.addEventListener('click', () => navigateMatches(1));
     
+    // Toggle case sensitivity
+    toggleCase.addEventListener('click', () => {
+      searchState.caseSensitive = !searchState.caseSensitive;
+      toggleCase.classList.toggle('active', searchState.caseSensitive);
+      performSearch();
+    });
+    
+    // Toggle regex mode
+    toggleRegex.addEventListener('click', () => {
+      searchState.regex = !searchState.regex;
+      toggleRegex.classList.toggle('active', searchState.regex);
+      performSearch();
+    });
+    
     // Close search
     closeSearch.addEventListener('click', () => hideSearch());
     
@@ -283,58 +306,111 @@
       
       if (!searchTerm) {
         searchResults.textContent = '0/0';
-        matches = [];
-        currentMatchIndex = -1;
+        searchState.matches = [];
+        searchState.currentMatchIndex = -1;
         return;
       }
       
       // Get all text nodes in the output
       const logLines = output.querySelectorAll('.log-line');
-      matches = [];
+      searchState.matches = [];
       
-      // Search from bottom to top
+      // Create a regex for the search term
+      const flags = searchState.caseSensitive ? 'g' : 'gi';
+      let searchRegex;
+      
+      try {
+        if (searchState.regex) {
+          // Use the raw pattern for regex mode
+          searchRegex = new RegExp(searchTerm, flags);
+        } else {
+          // Escape special characters in normal search mode
+          searchRegex = new RegExp(escapeRegExp(searchTerm), flags);
+        }
+      } catch (e) {
+        // Handle invalid regex
+        searchResults.textContent = 'Invalid RegEx';
+        return;
+      }
+      
+      // Search from bottom to top (most recent logs first)
       for (let i = logLines.length - 1; i >= 0; i--) {
-        const text = logLines[i].textContent;
-        if (text.toLowerCase().includes(searchTerm.toLowerCase())) {
-          matches.push(logLines[i]);
+        const logLine = logLines[i];
+        const text = logLine.textContent;
+        
+        if (text.match(searchRegex)) {
+          searchState.matches.push(logLine);
+          
+          // Highlight all instances of the search term
+          highlightMatches(logLine, searchTerm, searchRegex);
         }
       }
       
       // Update counter
-      searchResults.textContent = matches.length ? `1/${matches.length}` : '0/0';
+      searchResults.textContent = searchState.matches.length ? `1/${searchState.matches.length}` : '0/0';
       
       // Highlight first match
-      if (matches.length > 0) {
-        currentMatchIndex = 0;
-        highlightMatch(matches[0]);
-        scrollToMatch(matches[0]);
+      if (searchState.matches.length > 0) {
+        searchState.currentMatchIndex = 0;
+        searchState.matches[0].classList.add('search-match-current');
+        scrollToMatch(searchState.matches[0]);
       }
     }
     
-    function navigateMatches(direction) {
-      if (matches.length === 0) return;
+    function highlightMatches(element, searchTerm, regex) {
+      // Don't apply highlighting to pre elements or their children (like JSON)
+      if (element.tagName === 'PRE' || element.closest('pre')) {
+        return;
+      }
       
-      clearHighlights();
-      
-      // Update current match index
-      currentMatchIndex = (currentMatchIndex + direction + matches.length) % matches.length;
-      
-      // Update counter
-      searchResults.textContent = `${currentMatchIndex + 1}/${matches.length}`;
-      
-      // Highlight and scroll to current match
-      highlightMatch(matches[currentMatchIndex]);
-      scrollToMatch(matches[currentMatchIndex]);
+      // Process only direct text nodes and direct span children (not deeply nested content)
+      Array.from(element.childNodes).forEach(node => {
+        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'SPAN') {
+          // For direct span children, process their text content
+          const spanText = node.textContent;
+          
+          if (spanText.match(regex)) {
+            // Store the original class name
+            const originalClass = node.className;
+            
+            // Replace matches with highlighted spans, keeping original class
+            node.innerHTML = spanText.replace(regex, 
+              `<span class="search-term-highlight">$&</span>`);
+            
+            // Ensure the outer span still has its original class
+            node.className = originalClass;
+          }
+        }
+      });
     }
     
-    function highlightMatch(element) {
-      element.classList.add('search-match-current');
+    function navigateMatches(direction) {
+      if (searchState.matches.length === 0) return;
+      
+      // Remove current highlight
+      if (searchState.currentMatchIndex >= 0) {
+        searchState.matches[searchState.currentMatchIndex].classList.remove('search-match-current');
+      }
+      
+      // Update current match index
+      searchState.currentMatchIndex = (searchState.currentMatchIndex + direction + searchState.matches.length) % searchState.matches.length;
+      
+      // Update counter
+      searchResults.textContent = `${searchState.currentMatchIndex + 1}/${searchState.matches.length}`;
+      
+      // Highlight and scroll to current match
+      searchState.matches[searchState.currentMatchIndex].classList.add('search-match-current');
+      scrollToMatch(searchState.matches[searchState.currentMatchIndex]);
     }
     
     function clearHighlights() {
+      // Clear current match highlights
       document.querySelectorAll('.search-match-current').forEach(el => {
         el.classList.remove('search-match-current');
       });
+      
+      // Normalize the DOM to combine adjacent text nodes
+      output.normalize();
     }
     
     function scrollToMatch(element) {
@@ -343,9 +419,13 @@
       }
     }
     
+    // Helper function to escape special characters in regex
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
     // Add search with keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      
       // Enter to find next match
       if (e.key === 'Enter') {
         if (document.activeElement === searchInput) {
@@ -354,6 +434,7 @@
           } else {
             navigateMatches(1); // Enter for next
           }
+          e.preventDefault();
         }
       }
       
