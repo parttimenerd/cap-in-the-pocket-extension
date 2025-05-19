@@ -229,7 +229,8 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('cap-in-the-pocket.urlButtons') && this._view) {
-          this._view.webview.html = this.getWebviewContent();
+          // Send updated buttons without refreshing whole view
+          this.updateUrlButtons();
         }
       })
     );
@@ -238,20 +239,21 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     const webAppDiscovery = WebAppDiscovery.getInstance();
     webAppDiscovery.addChangeListener(() => {
       if (this._view) {
-        this._view.webview.html = this.getWebviewContent();
+        // Send updated buttons without refreshing whole view
+        this.updateUrlButtons();
       }
     });
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
-
+    
     // Set up the webview content
-    webviewView.webview.options = {
-      enableScripts: true
+    webviewView.webview.options = { 
+      enableScripts: true 
     };
     webviewView.webview.html = this.getWebviewContent();
-
+  
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage((message) => {
       switch (message.command) {
@@ -266,11 +268,14 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           break;
       }
     });
-
+  
     // Start scanning for web apps
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const port = config.get('serverPort') as number || 4004;
     WebAppDiscovery.getInstance().startScanning(port);
+    
+    // Send initial buttons (after a short delay to ensure webview is ready)
+    setTimeout(() => this.updateUrlButtons(), 100);
   }
 
   private restart(webview: vscode.Webview) {
@@ -444,6 +449,37 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         // Fall back to VS Code's method if the shell command fails
         vscode.env.openExternal(vscode.Uri.parse(url));
       }
+    });
+  }
+
+  private updateUrlButtons(): void {
+    if (!this._view) {
+      return;
+    }
+  
+    // Get the configured URL buttons
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
+    let urlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
+  
+    // Check for discovered web apps
+    const discoveredApps = WebAppDiscovery.getInstance().getWebApps();
+  
+    urlButtons = discoveredApps;
+  
+    let automaticallyDiscoveredApps = discoveredApps.length > 0;
+  
+    // add buttons from config
+    const configuredUrlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
+    if (configuredUrlButtons != null && configuredUrlButtons.length > 0) {
+      urlButtons = configuredUrlButtons;
+      automaticallyDiscoveredApps = false;
+    }
+  
+    // Send message to webview with updated button data
+    this._view.webview.postMessage({ 
+      command: 'updateButtons', 
+      buttons: urlButtons,
+      automaticallyDiscovered: automaticallyDiscoveredApps
     });
   }
 
@@ -717,7 +753,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         ${urlButtonsHtml}
 
         <div class="bubble-container" id="bubbleContainer"></div>
-        <img src="${logoUri}" class="lurking-logo" id="sapLogo" alt="SAP Machine logo lurking" />
+        <img src="\${logoUri}" class="lurking-logo" id="sapLogo" alt="SAP Machine logo lurking" />
 
         <script>
           const vscode = acquireVsCodeApi();
@@ -841,7 +877,58 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
               }
               output.scrollTop = output.scrollHeight;
             }
+            
+            // Handle button updates
+            if (event.data.command === 'updateButtons') {
+              updateUrlButtons(event.data.buttons, event.data.automaticallyDiscovered);
+            }
           });
+
+          // Add the button update function in the script section
+          function updateUrlButtons(buttons, automaticallyDiscovered) {
+            // Find or create buttons container
+            let buttonContainer = document.querySelector('.url-buttons');
+            
+            if (!buttons || buttons.length === 0) {
+              // Remove the container if no buttons
+              if (buttonContainer) {
+                buttonContainer.remove();
+              }
+              return;
+            }
+            
+            // Create container if it doesn't exist
+            if (!buttonContainer) {
+              buttonContainer = document.createElement('div');
+              buttonContainer.className = 'url-buttons';
+              document.body.insertBefore(buttonContainer, document.getElementById('bubbleContainer'));
+            }
+            
+            // Update the content
+            buttonContainer.innerHTML = \`
+              <h3>Application Links</h3>
+              <div class="button-container">
+                \${buttons.map(button => \`
+                  <button class="url-button" data-url="\${button.url}">
+                    \${button.label}
+                  </button>
+                \`).join('')}
+              </div>
+              \${automaticallyDiscovered ? \`
+              <p class="configuration-hint">
+                Automatically discovered application links.
+              </p>
+              \` : ''}
+            \`;
+            
+            // Re-attach event listeners to the buttons
+            document.querySelectorAll('.url-button').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const url = btn.getAttribute('data-url');
+                vscode.postMessage({ command: 'openUrl', url });
+              });
+            });
+          }
         </script>
       </body>
       </html>
