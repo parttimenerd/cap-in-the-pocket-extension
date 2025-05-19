@@ -486,19 +486,19 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Get the configured URL buttons
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     let urlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
-  
+
     // Check for discovered web apps
     const discoveredApps = WebAppDiscovery.getInstance().getWebApps();
     urlButtons = discoveredApps;
     let automaticallyDiscoveredApps = discoveredApps.length > 0;
-  
+
     // add buttons from config
     const configuredUrlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
     if (configuredUrlButtons != null && configuredUrlButtons.length > 0) {
       urlButtons = configuredUrlButtons;
       automaticallyDiscoveredApps = false;
     }
-  
+
     // Generate button HTML
     let urlButtonsHtml = '';
     if (urlButtons && urlButtons.length > 0) {
@@ -520,19 +520,19 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         </div>
       `;
     }
-  
+
     // Get proper URI for external resources
     const webview = this._view?.webview;
     const logoPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'sapmachine.svg');
     const logoUri = webview?.asWebviewUri(logoPath);
-    
+
     // Get CSS and JS files
     const cssPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'styles.css');
     const cssUri = webview?.asWebviewUri(cssPath);
-    
+
     const jsPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'webview.js');
     const jsUri = webview?.asWebviewUri(jsPath);
-  
+
     return `
       <html>
       <head>
@@ -552,12 +552,12 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           Experimental CAP-in-the-Pocket Extension
         </div>
         <pre id="output"></pre>
-  
+
         ${urlButtonsHtml}
-  
+
         <div class="bubble-container" id="bubbleContainer"></div>
         <img src="${logoUri}" class="lurking-logo" id="sapLogo" alt="SAP Machine logo lurking" />
-  
+
         <script>
           // Pass config values to the JavaScript file
           const maxMessageLimit = ${config.get('maxLogMessages') || 10000};
@@ -588,7 +588,23 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
 
       // Special handling for separator lines (like dashes, equals signs)
       if (/^[-=*]{3,}$/.test(line.trim()) || line.trim().startsWith('----------')) {
-        return `<div class="log-line ascii-art"><pre style="margin: 0; font-family: monospace; line-height: 1">${this.escapeHtml(line)}</pre></div>`;
+        return `<div class="log-line separator-line">
+                  <hr class="stylish-separator" />
+                </div>`;
+      }
+
+      // Handle content lines of security message boxes
+      if (/^\*\s+.*\s+\*$/.test(line.trim())) {
+        // This is a content line in an asterisk security box
+        // Extract the content between asterisks
+        const content = line.trim().replace(/^\*\s*|\s*\*$/g, '');
+
+        // Check if it's a warning line with exclamation marks
+        if (content.includes('!!!')) {
+          return `<div class="security-box-warning">${this.escapeHtml(content)}</div>`;
+        } else {
+          return `<div class="security-box-content">${this.escapeHtml(content)}</div>`;
+        }
       }
 
       // Special handling for Maven's Spring Boot ASCII art
@@ -600,6 +616,14 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       // Spring Boot version line
       if (line.includes(':: Spring Boot ::')) {
         return `<div class="log-line spring-boot-version"><pre style="margin: 0; font-family: monospace">${this.escapeHtml(line)}</pre></div>`;
+      }
+
+      // Detect and format section headers with different bracket styles enclosed in dashes
+      if (line.match(/-{5,}[<\[].+[>\]]-{5,}/) ||
+          line.match(/={5,}[<\[].+[>\]]=+/) ||
+          line.match(/\+-{5,}[<\[].+[>\]]-{5,}\+/)) {
+        let headerText = line.replace(/-{5,}|={5,}|\+-{5,}/g, '').trim();
+        return `<div class="log-line maven-section-header">${this.escapeHtml(headerText)}</div>`;
       }
 
       // Format Spring Boot log lines
@@ -628,8 +652,60 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         const messageMatch = line.match(/\s+:\s+(.+)$/);
         const message = messageMatch ? messageMatch[1] : line;
 
+        // Special handling for security message boxes with asterisk borders
+        if (/^\*{3,}$/.test(message)) {
+          // This is a top or bottom border of an asterisk box
+          return `<div class="security-box-border"></div>`;
+        }
+
+        // Handle content lines of security message boxes
+        if (/^\*\s+.*\s+\*$/.test(message.trim())) {
+          // This is a content line in an asterisk security box
+          // Extract the content between asterisks
+          const content = message.replace(/^\*\s*|\s*\*$/g, '');
+
+          // Check if it's a warning line with exclamation marks
+          if (content.includes('!!!')) {
+            return `<div class="security-box-warning">${this.escapeHtml(content)}</div>`;
+          } else {
+            return `<div class="security-box-content">${this.escapeHtml(content)}</div>`;
+          }
+        }
+
+        // Check if the message ends with JSON content
+        let formattedMessage = this.escapeHtml(message);
+        let hasJSON = false;
+        if (message.includes('{') && message.endsWith('}')) {
+          const firstOpeningBrace = message.indexOf('{');
+          const lastClosingBrace = message.lastIndexOf('}');
+          for (let i = lastClosingBrace; i >= firstOpeningBrace; i--) {
+            if (message[i] === '{') {
+              // try to parse the JSON
+              try {
+                const jsonString = message.substring(i, lastClosingBrace + 1);
+                const jsonObject = JSON.parse(jsonString);
+                // Format JSON with indentation
+                const formattedJson = JSON.stringify(jsonObject, null, 2);
+
+                // Apply syntax highlighting to the JSON
+                const textBeforeJson = this.highlightImportantStrings(message.substring(0, i));
+                const highlightedJson = this.syntaxHighlightJson(formattedJson);
+
+                formattedMessage = `${textBeforeJson}<pre class="json-content">${highlightedJson}</pre>`;
+                hasJSON = true;
+                break;
+              } catch (e) {
+              }
+            }
+          }
+        }
+
+        if (!hasJSON) {
+          formattedMessage = this.highlightImportantStrings(message);
+        }
+
         // Format: [time] emoji component: message
-        return `<div class="log-line spring-log"><span class="timestamp">[${timeString}]</span> <span class="log-level">${logLevel}</span> ${component}: <span class="message">${this.escapeHtml(message)}</span></div>`;
+        return `<div class="log-line spring-log"><span class="timestamp">[${timeString}]</span> <span class="log-level">${logLevel}</span> ${component}: <span class="message">${formattedMessage}</span></div>`;
       }
 
       // Format Maven build output
@@ -638,19 +714,41 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
 
         // Replace Maven log indicators with emoji
         simplified = simplified
-                            .replace(/\[INFO\]/g, '📦')
-                            .replace(/\[WARNING\]/g, '⚠️')
-                            .replace(/\[ERROR\]/g, '❌');
+                          .replace(/\[INFO\]/g, '📦')
+                          .replace(/\[WARNING\]/g, '⚠️')
+                          .replace(/\[ERROR\]/g, '❌');
+
+        // Replace phase markers with Unicode arrows
+        simplified = simplified
+                          .replace(/>>>/g, '▶️')
+                          .replace(/<<</g, '◀️');
+
+        const inner = this.highlightImportantStrings(simplified);
+
+        // Style module/project headers
+        if (simplified.includes('Building') && simplified.includes('[')) {
+          return `<div class="log-line maven-module-header">${inner}</div>`;
+        }
+
+        // Highlight important build stages
+        if (simplified.includes('spring-boot:') || simplified.includes('Building')) {
+          return `<div class="log-line maven-highlight">${inner}</div>`;
+        }
 
         // Remove common redundant parts in Maven output
         simplified = simplified.replace(/ \(default-[a-z]+\)/g, '');
         simplified = simplified.replace(/--- [a-z]+:[0-9.]+:[a-z]+ /g, '--- ');
 
-        return `<div class="log-line maven-line">${this.escapeHtml(simplified)}</div>`;
+        return `<div class="log-line maven-line">${inner}</div>`;
+      }
+
+      // Detect and format Maven section headers enclosed in dashes
+      if (line.match(/-{10,}< .+ >-{10,}/)) {
+        return `<div class="log-line maven-section-header">${this.highlightImportantStrings(line)}</div>`;
       }
 
       // Default formatting for unmatched lines
-      return `<div class="log-line plain-text">${this.escapeHtml(line)}</div>`;
+      return `<div class="log-line plain-text">${this.highlightImportantStrings(line)}</div>`;
     });
 
     return formattedLines.join('');
@@ -662,9 +760,193 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
+        .replace(/"/g, "&quot")
         .replace(/'/g, "&#039;");
   }
+
+  // Helper method to syntax highlight JSON
+  private syntaxHighlightJson(json: string): string {
+    // Already escaped JSON string
+    return json
+      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+        let cls = 'json-number'; // Default class for numbers
+
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'json-key'; // JSON keys
+          } else {
+            cls = 'json-string'; // JSON strings
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'json-boolean'; // JSON booleans
+        } else if (/null/.test(match)) {
+          cls = 'json-null'; // JSON null values
+        }
+
+        return `<span class="${cls}">${this.escapeHtml(match)}</span>`;
+      })
+      .replace(/\n/g, '<br>')
+      .replace(/\s{2}/g, '&nbsp;&nbsp;'); // Keep indentation
+  }
+
+  /**
+   * Highlights important strings and patterns in log messages
+   * with a token-based approach to prevent nesting
+   */
+    /**
+   * Highlights important strings and patterns in log messages
+   * with a token-based approach to prevent nesting
+   */
+    private highlightImportantStrings(text: string): string {
+      // Define patterns to highlight with their corresponding CSS classes
+      const patterns = [
+        // Quoted strings (double quotes)
+        {
+          regex: /"([^"]*)"/g,
+          cssClass: "json-string"
+        },
+        // Quoted strings (single quotes)
+        {
+          regex: /'([^']*)'/g,
+          cssClass: "json-string"
+        },
+        // URLs
+        {
+          regex: /(https?:\/\/[^\s]+)/g,
+          cssClass: "highlight-url"
+        },
+        // Error words
+        {
+          regex: /\b(error|exception|failed|failure|cannot|unable to|invalid)\b/gi,
+          cssClass: "error-message"
+        },
+        // Warning words
+        {
+          regex: /\b(warning|warn|deprecated|caution)\b/gi,
+          cssClass: "warning-message"
+        },
+        // Success indicators
+        {
+          regex: /\b(success|successful|completed|ready|started|listening on port)\b/gi,
+          cssClass: "success-message"
+        },
+        // Important keywords
+        {
+          regex: /\b(created|deleted|updated|modified|initialized|generated)\b/gi,
+          cssClass: "highlight-action"
+        },
+        // File paths (simplified to avoid regex catastrophic backtracking)
+        {
+          regex: /(\/|\.\.?\/)([\w\-\.\/]+)/g,
+          cssClass: "highlight-path"
+        },
+        // Windows file paths
+        {
+          regex: /[a-zA-Z]:\\[\w\\.-]+/g,
+          cssClass: "highlight-path"
+        },
+        // Port numbers
+        {
+          regex: /\b(port|PORT):\s*(\d+)\b/g,
+          cssClass: "highlight-port"
+        },
+        // component names
+        {
+          regex: /([a-z]+\.)+([A-Z][a-zA-Z0-9_$]+)/g,
+          cssClass: "highlight-classname"
+        },
+        // component names without package but with $
+        {
+          regex: /(([A-Z][a-zA-Z0-9_$]+)\$([A-Z][a-zA-Z0-9_$]+)+)/g,
+          cssClass: "highlight-classname"
+        },
+        {
+          regex: /([A-Z]+[a-z][a-z]+([A-Z][a-zA-Z0-9_$]+)+)/g,
+          cssClass: "highlight-classname"
+        },
+        // numbers
+        {
+          regex: /\b\d+(\.\d+)?\b/g,
+          cssClass: "json-number"
+        },
+      ];
+
+      // Find all matches for all patterns
+      interface Match {
+        start: number;
+        end: number;
+        text: string;
+        cssClass: string;
+      }
+
+      const matches: Match[] = [];
+
+      // Collect all matches from all patterns
+      patterns.forEach(pattern => {
+        const regex = pattern.regex;
+
+        // Need to clone the regex to reset lastIndex
+        const clonedRegex = new RegExp(regex.source, regex.flags);
+        let match;
+
+        while ((match = clonedRegex.exec(text)) !== null) {
+          // Ensure we're not adding empty matches
+          if (match[0].length > 0) {
+            matches.push({
+              start: match.index,
+              end: match.index + match[0].length,
+              text: match[0],
+              cssClass: pattern.cssClass
+            });
+          }
+
+          // Prevent infinite loop with zero-width matches
+          if (match.index === clonedRegex.lastIndex) {
+            clonedRegex.lastIndex++;
+          }
+        }
+      });
+
+      // Sort matches by start position
+      matches.sort((a, b) => a.start - b.start);
+
+      // Filter out overlapping matches - keep only non-overlapping ones
+      const filteredMatches: Match[] = [];
+      let lastEnd = -1;
+
+      for (const match of matches) {
+        if (match.start >= lastEnd) {
+          // This match doesn't overlap with any previously kept match
+          filteredMatches.push(match);
+          lastEnd = match.end;
+        }
+      }
+
+      // Build the result string by proceeding through the original text
+      // and inserting spans for the matches
+      let result = '';
+      let currentPos = 0;
+
+      for (const match of filteredMatches) {
+        // Add the text before this match
+        if (match.start > currentPos) {
+          result += this.escapeHtml(text.substring(currentPos, match.start));
+        }
+
+        // Add the highlighted match
+        result += `<span class="${match.cssClass}">${this.escapeHtml(match.text)}</span>`;
+
+        // Update the current position
+        currentPos = match.end;
+      }
+
+      // Add any remaining text after the last match
+      if (currentPos < text.length) {
+        result += this.escapeHtml(text.substring(currentPos));
+      }
+
+      return result;
+    }
 }
 
 export function deactivate() {

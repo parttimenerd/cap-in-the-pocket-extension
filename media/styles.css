@@ -50,6 +50,7 @@ body {
   font-family: monospace;
   line-height: 1;
   font-size: 13px;
+  resize: vertical;
 }
 
 .timestamp {
@@ -78,6 +79,34 @@ body {
 .maven-line {
   color: #b0b0b0;
   font-size: 0.95em;
+  font-family: monospace;
+  line-height: 1.2;
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.maven-highlight {
+  font-weight: bold;
+  color: var(--vscode-charts-blue);
+  font-family: monospace;
+  margin-top: 8px;
+}
+
+.maven-module-header {
+  font-weight: bold;
+  color: var(--vscode-charts-orange);
+  font-family: monospace;
+  margin-top: 8px;
+  padding: 3px 0;
+}
+
+.maven-section-header {
+  font-weight: bold;
+  color: #5c7cfa;
+  margin: 8px 0;
+  padding: 2px 0;
+  border-radius: 3px;
+  background-color: rgba(92, 124, 250, 0.1);
 }
 
 /* Log line formatting */
@@ -101,11 +130,17 @@ body {
 .error-message {
   color: #f14c4c;
   font-weight: bold;
+  background-color: rgba(241, 76, 76, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 
 .warning-message {
   color: #cca700;
   font-weight: bold;
+  background-color: rgba(204, 167, 0, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 
 .start-message {
@@ -256,4 +291,173 @@ h3 {
   .component-name {
     max-width: 20px; /* About one character */
   }
+}
+
+/* Separator line styling */
+.separator-line {
+  display: block;
+  border-top: 1px solid #3c3c3c;
+  margin: 6px 0;
+  height: 1px;
+}
+
+.stylish-separator {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--vscode-editor-foreground), transparent);
+}
+
+/* Unicode replacements for arrows */
+.unicode-arrow {
+  color: #4fc1ff;
+  font-weight: bold;
+}
+
+/* Highlighting important parts */
+.highlight-important {
+  color: #ffcc00;
+  font-weight: bold;
+  background-color: rgba(255, 204, 0, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+/* Maven build step styling */
+.maven-step {
+  color: #9cdcfe;
+  font-weight: bold;
+  font-style: italic;
+}
+
+/* Maven module name styling */
+.maven-module {
+  color: #569cd6;
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+/* Spring Boot styling improvements */
+.spring-boot-version {
+  color: var(--vscode-charts-green);
+  text-align: center;
+  font-weight: bold;
+  margin: 5px 0;
+}
+
+.ascii-art {
+  color: var(--vscode-terminal-ansiCyan);
+  text-align: center;
+}
+
+.maven-section-header {
+  font-weight: bold;
+  color: #5c7cfa;
+  margin: 8px 0;
+  padding: 2px 0;
+  border-radius: 3px;
+  background-color: rgba(92, 124, 250, 0.1);
+}
+
+/* JSON content formatting */
+.json-content {
+  font-family: monospace;
+  background-color: rgba(60, 60, 60, 0.2);
+  border-radius: 3px;
+  padding: 8px;
+  margin: 4px 0;
+  color: #d4d4d4;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* JSON syntax highlighting colors */
+.json-key {
+  color: #9cdcfe;
+}
+
+.json-string {
+  color: #ce9178;
+}
+
+.json-number {
+  color: #b5cea8;
+}
+
+.json-boolean {
+  color: #569cd6;
+}
+
+.json-null {
+  color: #569cd6;
+}
+
+/* Highlighted patterns in log messages */
+.highlight-url {
+  color: #3794ff;
+  text-decoration: underline;
+}
+
+.highlight-path {
+  color: #c586c0;
+  font-style: italic;
+}
+
+.highlight-port {
+  color: #b5cea8;
+  font-weight: bold;
+}
+
+.highlight-id {
+  color: #b5cea8;
+  font-weight: bold;
+}
+
+.highlight-action {
+  color: #4fc1ff;
+  font-weight: bold;
+}
+
+.highlight-classname {
+  color: #c9e5f5;
+  font-weight: bold;
+}
+
+/* Security warning boxes styling */
+.security-box-border {
+  height: 6px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--vscode-editor-foreground) 0px,
+    var(--vscode-editor-foreground) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  margin: 0;
+  border-radius: 3px;
+}
+
+.security-box-content {
+  font-weight: bold;
+  color: #e6c07b;
+  background-color: rgba(230, 192, 123, 0.1);
+  padding: 6px 10px;
+  margin: 0;
+  border-left: 3px solid #e6c07b;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.security-box-warning {
+  font-weight: bold;
+  color: #f14c4c;
+  background-color: rgba(241, 76, 76, 0.1);
+  padding: 6px 10px;
+  margin: 0;
+  border-left: 3px solid #f14c4c;
+  text-align: center;
+  white-space: pre-wrap;
+  line-height: 1.4;
 }
