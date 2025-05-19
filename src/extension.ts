@@ -752,7 +752,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         ${urlButtonsHtml}
 
         <div class="bubble-container" id="bubbleContainer"></div>
-        <img src="\${logoUri}" class="lurking-logo" id="sapLogo" alt="SAP Machine logo lurking" />
+        <img src="${logoUri}" class="lurking-logo" id="sapLogo" alt="SAP Machine logo lurking" />
 
         <script>
           const vscode = acquireVsCodeApi();
