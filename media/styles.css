@@ -51,6 +51,7 @@ body {
   line-height: 1;
   font-size: 13px;
   resize: vertical;
+  position: relative;
 }
 
 .timestamp {
@@ -448,6 +449,7 @@ h3 {
   border-left: 3px solid #e6c07b;
   white-space: pre-wrap;
   line-height: 1.4;
+  text-align: center;
 }
 
 .security-box-warning {

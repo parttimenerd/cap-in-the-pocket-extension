@@ -14,7 +14,8 @@
   let bubbleInterval;
   let hideLogoTimer;
   let messageCount = 0;
-  const maxMessages = maxMessageLimit || 10000; // Set from the extension
+  const maxMessages = typeof maxMessageLimit !== 'undefined' ? maxMessageLimit : 10000; // Set from the extension or default
+  let scrollToBottomButton; // For the "scroll to bottom" button
 
   // Initialize button event listeners
   function initButtons() {
@@ -117,6 +118,11 @@
 
   // Log handling functions
   function addLogMessage(logContent) {
+    // Check if scrolled to bottom BEFORE adding new content.
+    // A small tolerance helps with fractional pixel values.
+    const tolerance = 1;
+    const isScrolledToBottom = output.scrollHeight - output.clientHeight <= output.scrollTop + tolerance;
+
     messageCount++;
 
     // Always wrap in a div for consistent styling
@@ -149,7 +155,13 @@
       trimOldMessages();
     }
 
-    output.scrollTop = output.scrollHeight;
+    // Scroll to bottom only if it was already at the bottom before new message
+    if (isScrolledToBottom) {
+      output.scrollTop = output.scrollHeight;
+    }
+    
+    // Update scroll to bottom button visibility
+    updateScrollButtonVisibility();
   }
 
   function trimOldMessages() {
@@ -205,6 +217,59 @@
     document.querySelectorAll('.url-button').forEach(attachUrlButtonHandler);
   }
 
+  // Scroll to bottom feature functions
+  function initScrollFeatures() {
+    scrollToBottomButton = document.createElement('button');
+    scrollToBottomButton.textContent = '⬇️'; // You can use text like "Scroll to Bottom" or an icon
+    scrollToBottomButton.id = 'scrollToBottomButton';
+    scrollToBottomButton.className = 'scroll-button'; // CSS styling now handled by this class
+    scrollToBottomButton.title = 'Scroll to bottom';
+    scrollToBottomButton.setAttribute('aria-label', 'Scroll to bottom');
+    
+    // Ensure the output container is ready for absolute positioning
+    if (window.getComputedStyle(output).position === 'static') {
+      output.style.position = 'relative';
+    }
+    
+    // Append the button to output
+    output.appendChild(scrollToBottomButton);
+    
+    // Event listener for clicking the button
+    scrollToBottomButton.addEventListener('click', () => {
+      output.scrollTop = output.scrollHeight;
+      updateScrollButtonVisibility(); // Update visibility after scrolling
+    });
+
+    // Event listener for scroll events on the output div
+    output.addEventListener('scroll', updateScrollButtonVisibility);
+    
+    // Also update on window resize, as clientHeight might change
+    window.addEventListener('resize', updateScrollButtonVisibility);
+
+    // Force a check initially
+    setTimeout(updateScrollButtonVisibility, 100);
+    
+    // For debugging: temporarily force button visibility to check if it appears
+    console.log('Scroll button created:', scrollToBottomButton);
+    // Uncomment next line for debugging
+    // scrollToBottomButton.style.display = 'block';
+  }
+
+  function updateScrollButtonVisibility() {
+    if (!scrollToBottomButton || !output) return;
+
+    const tolerance = 2; // Small tolerance for pixel calculations
+    // Check if the content is scrollable
+    const isScrollable = output.scrollHeight > output.clientHeight;
+    // Check if not scrolled to the very bottom
+
+    if (isScrollable && isNotAtBottom) {
+      scrollToBottomButton.style.display = 'block';
+    } else {
+      scrollToBottomButton.style.display = 'none';
+    }
+  }
+
   // Message handling from extension
   window.addEventListener('message', event => {
     if (event.data.log) {
@@ -219,4 +284,5 @@
 
   // Initialize the UI
   initButtons();
+  initScrollFeatures(); // Initialize scroll-related features
 })();
