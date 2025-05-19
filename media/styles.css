@@ -463,3 +463,83 @@ h3 {
   white-space: pre-wrap;
   line-height: 1.4;
 }
+
+/* Search bar styling */
+.search-container {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background-color: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  transform: translateY(-100%);
+  transition: transform 0.2s ease;
+  display: none; /* Hide by default */
+}
+
+.search-container.visible {
+  transform: translateY(0);
+  display: flex;
+}
+
+#searchInput {
+  flex-grow: 1;
+  margin-right: 8px;
+  padding: 4px 8px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 2px;
+}
+
+#searchResults {
+  margin: 0 8px;
+  min-width: 40px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.search-container button {
+  padding: 4px 8px;
+  margin-left: 4px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.search-container button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.search-match-current {
+  background-color: var(--vscode-editor-findMatchHighlightBackground);
+  outline: 1px solid var(--vscode-editor-findMatchHighlightBorder);
+}
+
+.search-icon {
+  position: fixed;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: none;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 99;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.search-icon:hover {
+  opacity: 1;
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}

@@ -15,7 +15,6 @@
   let hideLogoTimer;
   let messageCount = 0;
   const maxMessages = typeof maxMessageLimit !== 'undefined' ? maxMessageLimit : 10000; // Set from the extension or default
-  let scrollToBottomButton; // For the "scroll to bottom" button
 
   // Initialize button event listeners
   function initButtons() {
@@ -159,9 +158,6 @@
     if (isScrolledToBottom) {
       output.scrollTop = output.scrollHeight;
     }
-    
-    // Update scroll to bottom button visibility
-    updateScrollButtonVisibility();
   }
 
   function trimOldMessages() {
@@ -217,57 +213,160 @@
     document.querySelectorAll('.url-button').forEach(attachUrlButtonHandler);
   }
 
-  // Scroll to bottom feature functions
-  function initScrollFeatures() {
-    scrollToBottomButton = document.createElement('button');
-    scrollToBottomButton.textContent = '⬇️'; // You can use text like "Scroll to Bottom" or an icon
-    scrollToBottomButton.id = 'scrollToBottomButton';
-    scrollToBottomButton.className = 'scroll-button'; // CSS styling now handled by this class
-    scrollToBottomButton.title = 'Scroll to bottom';
-    scrollToBottomButton.setAttribute('aria-label', 'Scroll to bottom');
+  // Search functionality
+  function initSearchFeatures() {
+    // Create search icon
+    const searchIcon = document.createElement('button');
+    searchIcon.className = 'search-icon';
+    searchIcon.innerHTML = '🔍';
+    searchIcon.title = 'Search logs (Ctrl+F)';
+    searchIcon.setAttribute('aria-label', 'Search logs');
+    output.appendChild(searchIcon);
+    // Create search container (initially hidden)
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'search-container';
+    searchContainer.innerHTML = `
+      <input type="text" id="searchInput" placeholder="Search logs...">
+      <span id="searchResults">0/0</span>
+      <button id="nextMatch" title="Next match">↑</button>
+      <button id="prevMatch" title="Previous match">↓</button>
+      <button id="closeSearch" title="Close search">✕</button>
+    `;
     
-    // Ensure the output container is ready for absolute positioning
-    if (window.getComputedStyle(output).position === 'static') {
-      output.style.position = 'relative';
+    // Insert at the top of output
+    output.insertBefore(searchContainer, output.firstChild);
+    
+    // Get elements
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const prevMatch = document.getElementById('prevMatch');
+    const nextMatch = document.getElementById('nextMatch');
+    const closeSearch = document.getElementById('closeSearch');
+    
+    // Search state
+    let matches = [];
+    let currentMatchIndex = -1;
+    
+    // Show/hide search functionality
+    function showSearch() {
+      searchContainer.classList.add('visible');
+      searchInput.focus();
+      searchIcon.style.display = 'none';
     }
     
-    // Append the button to output
-    output.appendChild(scrollToBottomButton);
+    function hideSearch() {
+      searchContainer.classList.remove('visible');
+      clearHighlights();
+      searchInput.value = '';
+      searchResults.textContent = '0/0';
+      matches = [];
+      currentMatchIndex = -1;
+      searchIcon.style.display = 'flex';
+    }
     
-    // Event listener for clicking the button
-    scrollToBottomButton.addEventListener('click', () => {
-      output.scrollTop = output.scrollHeight;
-      updateScrollButtonVisibility(); // Update visibility after scrolling
+    // Search icon click
+    searchIcon.addEventListener('click', showSearch);
+    
+    // Handle search input
+    searchInput.addEventListener('input', () => performSearch());
+    
+    // Navigation buttons
+    prevMatch.addEventListener('click', () => navigateMatches(-1));
+    nextMatch.addEventListener('click', () => navigateMatches(1));
+    
+    // Close search
+    closeSearch.addEventListener('click', () => hideSearch());
+    
+    function performSearch() {
+      const searchTerm = searchInput.value.trim();
+      clearHighlights();
+      
+      if (!searchTerm) {
+        searchResults.textContent = '0/0';
+        matches = [];
+        currentMatchIndex = -1;
+        return;
+      }
+      
+      // Get all text nodes in the output
+      const logLines = output.querySelectorAll('.log-line');
+      matches = [];
+      
+      // Search from bottom to top
+      for (let i = logLines.length - 1; i >= 0; i--) {
+        const text = logLines[i].textContent;
+        if (text.toLowerCase().includes(searchTerm.toLowerCase())) {
+          matches.push(logLines[i]);
+        }
+      }
+      
+      // Update counter
+      searchResults.textContent = matches.length ? `1/${matches.length}` : '0/0';
+      
+      // Highlight first match
+      if (matches.length > 0) {
+        currentMatchIndex = 0;
+        highlightMatch(matches[0]);
+        scrollToMatch(matches[0]);
+      }
+    }
+    
+    function navigateMatches(direction) {
+      if (matches.length === 0) return;
+      
+      clearHighlights();
+      
+      // Update current match index
+      currentMatchIndex = (currentMatchIndex + direction + matches.length) % matches.length;
+      
+      // Update counter
+      searchResults.textContent = `${currentMatchIndex + 1}/${matches.length}`;
+      
+      // Highlight and scroll to current match
+      highlightMatch(matches[currentMatchIndex]);
+      scrollToMatch(matches[currentMatchIndex]);
+    }
+    
+    function highlightMatch(element) {
+      element.classList.add('search-match-current');
+    }
+    
+    function clearHighlights() {
+      document.querySelectorAll('.search-match-current').forEach(el => {
+        el.classList.remove('search-match-current');
+      });
+    }
+    
+    function scrollToMatch(element) {
+      if (element) {
+        element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }
+    
+    // Add search with keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Ctrl+F to focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        showSearch();
+      }
+      
+      // Enter to find next match
+      if (e.key === 'Enter') {
+        if (document.activeElement === searchInput) {
+          if (e.shiftKey) {
+            navigateMatches(-1); // Shift+Enter for previous
+          } else {
+            navigateMatches(1); // Enter for next
+          }
+        }
+      }
+      
+      // Escape to close search
+      if (e.key === 'Escape') {
+        hideSearch();
+      }
     });
-
-    // Event listener for scroll events on the output div
-    output.addEventListener('scroll', updateScrollButtonVisibility);
-    
-    // Also update on window resize, as clientHeight might change
-    window.addEventListener('resize', updateScrollButtonVisibility);
-
-    // Force a check initially
-    setTimeout(updateScrollButtonVisibility, 100);
-    
-    // For debugging: temporarily force button visibility to check if it appears
-    console.log('Scroll button created:', scrollToBottomButton);
-    // Uncomment next line for debugging
-    // scrollToBottomButton.style.display = 'block';
-  }
-
-  function updateScrollButtonVisibility() {
-    if (!scrollToBottomButton || !output) return;
-
-    const tolerance = 2; // Small tolerance for pixel calculations
-    // Check if the content is scrollable
-    const isScrollable = output.scrollHeight > output.clientHeight;
-    // Check if not scrolled to the very bottom
-
-    if (isScrollable && isNotAtBottom) {
-      scrollToBottomButton.style.display = 'block';
-    } else {
-      scrollToBottomButton.style.display = 'none';
-    }
   }
 
   // Message handling from extension
@@ -284,5 +383,5 @@
 
   // Initialize the UI
   initButtons();
-  initScrollFeatures(); // Initialize scroll-related features
+  initSearchFeatures(); // Initialize search features
 })();
