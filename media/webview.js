@@ -345,11 +345,6 @@
     
     // Add search with keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      // Ctrl+F to focus search
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        showSearch();
-      }
       
       // Enter to find next match
       if (e.key === 'Enter') {
