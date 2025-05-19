@@ -542,12 +542,14 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         <title>CAP in the Pocket</title>
       </head>
       <body>
-        <button id="restartButton" class="large-button">
-          (Re)Launch CAP App
-        </button>
-        <button id="recompileButton" class="large-button">
-          Recompile CAP App
-        </button>
+        <div class="top-buttons-container">
+          <button id="restartButton" class="large-button">
+            (Re)Launch CAP App
+          </button>
+          <button id="recompileButton" class="large-button">
+            Recompile CAP App
+          </button>
+        </div>
         <div class="extension-tagline">
           Experimental CAP-in-the-Pocket Extension
         </div>

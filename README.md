@@ -1,21 +1,31 @@
 CAP-in-the-Pocket Demo Extension
 =============================
 
-This is the corresponding extension for my demo.
-It allows you to run
+This is the corresponding extension for my CAP-in-the-Pocket demo,
+showing how a CAP-Java application can be run and developed
+locally on your phone.
+
+![](media/screenshot.png)
+
+This plugin simplifies starting your CAP application.
+
+It can stop other applications listening on a part,
+and rebuild your app, akin to:
 
 ```sh
 (lsof -ti:4004 | xargs kill -9) || killall java || true
 mvn spring-boot:run
 ```
 
-with the click of a simple button, show you the output
-and allow you to create short-cut links.
+It automatically detects application end-points and
+offers you buttons to visit them in your browser.
 
-**This is highly experimental and used for one single demo.**
+It formats the build and application log to highlight
+the important parts.
 
-![View](media/view.png)
-![Phone](media/phone_view.png)
+It supports searching the log.
+
+**This is highly experimental.**
 
 ## Installation
 
@@ -57,7 +67,7 @@ Usage
 
 Development
 -----------
-This has been generated with the help of Claude Sonnet and GitHub Copilot.
+This has been generated with the help of Claude Sonnet and GitHub Copilot. It's more like a proof-of-concept and not intended to be maintained in the long run.
 
 Contributing
 ------------
