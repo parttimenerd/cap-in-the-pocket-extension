@@ -247,13 +247,13 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
-    
+
     // Set up the webview content
-    webviewView.webview.options = { 
-      enableScripts: true 
+    webviewView.webview.options = {
+      enableScripts: true
     };
     webviewView.webview.html = this.getWebviewContent();
-  
+
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage((message) => {
       switch (message.command) {
@@ -268,12 +268,12 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           break;
       }
     });
-  
+
     // Start scanning for web apps
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const port = config.get('serverPort') as number || 4004;
     WebAppDiscovery.getInstance().startScanning(port);
-    
+
     // Send initial buttons (after a short delay to ensure webview is ready)
     setTimeout(() => this.updateUrlButtons(), 100);
   }
@@ -455,28 +455,28 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     if (!this._view) {
       return;
     }
-  
+
     // Get the configured URL buttons
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     let urlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
-  
+
     // Check for discovered web apps
     const discoveredApps = WebAppDiscovery.getInstance().getWebApps();
-  
+
     urlButtons = discoveredApps;
-  
+
     let automaticallyDiscoveredApps = discoveredApps.length > 0;
-  
+
     // add buttons from config
     const configuredUrlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
     if (configuredUrlButtons != null && configuredUrlButtons.length > 0) {
       urlButtons = configuredUrlButtons;
       automaticallyDiscoveredApps = false;
     }
-  
+
     // Send message to webview with updated button data
-    this._view.webview.postMessage({ 
-      command: 'updateButtons', 
+    this._view.webview.postMessage({
+      command: 'updateButtons',
       buttons: urlButtons,
       automaticallyDiscovered: automaticallyDiscoveredApps
     });
@@ -735,6 +735,52 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             pointer-events: none;
             z-index: 2; /* Position above the logo */
           }
+
+          /* Consistent log line spacing */
+          .log-line {
+            margin: 0;
+            padding: 2px 0;
+            line-height: 1.4;
+            white-space: pre-wrap;
+          }
+
+          .log-spacer {
+            height: 2px;
+          }
+
+          /* Special styling for different message types */
+          .success-message {
+            color: #6a9955;
+            font-weight: bold;
+          }
+
+          .error-message {
+            color: #f14c4c;
+            font-weight: bold;
+          }
+
+          .warning-message {
+            color: #cca700;
+            font-weight: bold;
+          }
+
+          .start-message {
+            color: #4fc1ff;
+            font-weight: bold;
+          }
+
+          /* Keep Maven output more compact */
+          .maven-line {
+            color: #b0b0b0;
+            font-size: 0.95em;
+            padding-top: 1px;
+            padding-bottom: 1px;
+          }
+
+          /* Ensure all content is properly wrapped */
+          .plain-text, .spring-log, .ascii-art {
+            white-space: pre-wrap;
+          }
         </style>
       </head>
       <body>
@@ -868,33 +914,46 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
             if (event.data.log) {
               // Add new log message
               messageCount++;
-          
-              // Check if the log content appears to be HTML
-              if (event.data.log.includes('<span') || event.data.log.includes('<div')) {
-                // Append as HTML
-                const tempDiv = document.createElement('div');
+
+              // Always wrap in a div for consistent styling
+              const tempDiv = document.createElement('div');
+
+              // If the content is already HTML, use it directly
+              if (event.data.log.includes('<div') || event.data.log.includes('<span')) {
                 tempDiv.innerHTML = event.data.log;
-                output.appendChild(tempDiv);
               } else {
-                // Legacy plaintext append
-                const textNode = document.createTextNode(event.data.log);
-                output.appendChild(textNode);
+                // For raw text messages like "Process completed successfully", add proper styling
+                let logClass = 'plain-text';
+
+                if (event.data.log.includes('✅')) {
+                  logClass = 'success-message';
+                } else if (event.data.log.includes('❌')) {
+                  logClass = 'error-message';
+                } else if (event.data.log.includes('⚠️')) {
+                  logClass = 'warning-message';
+                } else if (event.data.log.includes('▶️')) {
+                  logClass = 'start-message';
+                }
+
+                tempDiv.innerHTML = \`<div class="log-line \${logClass}">\${event.data.log}</div>\`;
               }
-              
-              // Trim old messages if we exceed the limit (and limit is not 0/disabled)
+
+              output.appendChild(tempDiv);
+
+              // Trim old messages if needed
               if (maxMessages > 0 && messageCount > maxMessages) {
                 trimOldMessages();
               }
-              
+
               output.scrollTop = output.scrollHeight;
             }
-            
+
             // Handle button updates
             if (event.data.command === 'updateButtons') {
               updateUrlButtons(event.data.buttons, event.data.automaticallyDiscovered);
             }
           });
-          
+
           // Function to remove old messages
           function trimOldMessages() {
             // Keep removing the first child until we're within the limit
@@ -912,7 +971,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           function updateUrlButtons(buttons, automaticallyDiscovered) {
             // Find or create buttons container
             let buttonContainer = document.querySelector('.url-buttons');
-            
+
             if (!buttons || buttons.length === 0) {
               // Remove the container if no buttons
               if (buttonContainer) {
@@ -920,14 +979,14 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
               }
               return;
             }
-            
+
             // Create container if it doesn't exist
             if (!buttonContainer) {
               buttonContainer = document.createElement('div');
               buttonContainer.className = 'url-buttons';
               document.body.insertBefore(buttonContainer, document.getElementById('bubbleContainer'));
             }
-            
+
             // Update the content
             buttonContainer.innerHTML = \`
               <h3>Application Links</h3>
@@ -944,7 +1003,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
               </p>
               \` : ''}
             \`;
-            
+
             // Re-attach event listeners to the buttons
             document.querySelectorAll('.url-button').forEach(btn => {
               btn.addEventListener('click', () => {
@@ -964,27 +1023,28 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const enableLogFiltering = config.get('enableLogFiltering') as boolean || true;
 
+    // Always wrap even plain text in divs for consistent styling
     if (!enableLogFiltering) {
-      return output; // Return unmodified if filtering is disabled
+      return `<div class="log-line plain-text">${this.escapeHtml(output)}</div>`;
     }
 
     // Split output into lines for processing
     const lines = output.split('\n');
     const formattedLines = lines.map(line => {
-      // Skip empty lines
+      // Skip empty lines but add a small spacer
       if (!line.trim()) {
-        return line;
+        return '<div class="log-spacer"></div>';
       }
 
       // Special handling for Maven's Spring Boot ASCII art
       if (line.includes('____') || line.includes('\\/') || line.includes('/\\\\') ||
           line.includes('( ( )') || line.includes("'  |") || line.includes(' ====')){
-        return line; // Keep Spring Boot ASCII art untouched
+        return `<div class="log-line ascii-art">${this.escapeHtml(line)}</div>`;
       }
 
       // Spring Boot version line
       if (line.includes(':: Spring Boot ::')) {
-        return `\n${line}\n`; // Add spacing around Spring Boot version line
+        return `<div class="log-line spring-boot-version">${this.escapeHtml(line)}</div>`;
       }
 
       // Format Spring Boot log lines
@@ -1006,7 +1066,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         if (componentMatch) {
           component = componentMatch[2];
           // Use HTML with a special class
-          component = `<span class="component-name">${component}</span>`;
+          component = `<span class="component-name">${this.escapeHtml(component)}</span>`;
         }
 
         // Extract actual message
@@ -1014,30 +1074,41 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         const message = messageMatch ? messageMatch[1] : line;
 
         // Format: [time] emoji component: message
-        return `<div class="log-line"><span class="timestamp">[${timeString}]</span> <span class="log-level">${logLevel}</span> ${component}: <span class="message">${message}</span></div>`;
+        return `<div class="log-line spring-log"><span class="timestamp">[${timeString}]</span> <span class="log-level">${logLevel}</span> ${component}: <span class="message">${this.escapeHtml(message)}</span></div>`;
       }
 
-      // Format Maven build output - keep emoji but make more compact
+      // Format Maven build output
       if (line.includes('[INFO]') || line.includes('[WARNING]') || line.includes('[ERROR]')) {
         let simplified = line;
 
         // Replace Maven log indicators with emoji
-        simplified = simplified.replace(/\[INFO\]/, '📦')
-                            .replace(/\[WARNING\]/, '⚠️')
-                            .replace(/\[ERROR\]/, '❌');
+        simplified = simplified
+                            .replace(/\[INFO\]/g, '📦')
+                            .replace(/\[WARNING\]/g, '⚠️')
+                            .replace(/\[ERROR\]/g, '❌');
 
         // Remove common redundant parts in Maven output
         simplified = simplified.replace(/ \(default-[a-z]+\)/g, '');
         simplified = simplified.replace(/--- [a-z]+:[0-9.]+:[a-z]+ /g, '--- ');
 
-        return `<div class="maven-line">${simplified}</div>`;
+        return `<div class="log-line maven-line">${this.escapeHtml(simplified)}</div>`;
       }
 
-      // Return unmodified line if no patterns match
-      return line;
+      // Default formatting for unmatched lines
+      return `<div class="log-line plain-text">${this.escapeHtml(line)}</div>`;
     });
 
-    return formattedLines.join('\n');
+    return formattedLines.join('');
+  }
+
+  // Helper method to safely escape HTML characters
+  private escapeHtml(unsafe: string): string {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
   }
 }
 
