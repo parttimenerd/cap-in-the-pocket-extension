@@ -1,0 +1,259 @@
+body {
+  font-family: sans-serif;
+  padding: 10px;
+}
+
+/* Button styles */
+.large-button {
+  background-color: #007acc;
+  color: white;
+  font-size: 16px;
+  padding: 16px;
+  width: 100%;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 5px;
+}
+
+.extension-tagline {
+  margin: 12px 0;
+  text-align: center;
+  color: #888888;
+  font-size: 12px;
+  font-style: italic;
+  padding: 6px;
+  border-top: 1px solid #3c3c3c;
+  border-bottom: 1px solid #3c3c3c;
+  background-color: rgba(60, 60, 60, 0.1);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.extension-tagline::before {
+  content: "⚡";
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+/* Output log styles */
+#output {
+  margin-top: 15px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 10px;
+  height: 300px;
+  overflow-y: auto;
+  border-radius: 4px;
+  font-family: monospace;
+  line-height: 1;
+  font-size: 13px;
+}
+
+.timestamp {
+  color: #8a8a8a;
+  margin-right: 0px;
+}
+
+.log-level {
+  display: inline-block;
+  width: 5px;        /* Fixed width for all emoji icons */
+  text-align: center; /* Center the emoji within its container */
+  margin-right: 5px;
+}
+
+.component-name {
+  color: #569cd6;
+  font-weight: bold;
+  display: inline-block;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: hide;
+  vertical-align: bottom;
+}
+
+.maven-line {
+  color: #b0b0b0;
+  font-size: 0.95em;
+}
+
+/* Log line formatting */
+.log-line {
+  margin: 0;
+  padding: 2px 0;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.log-spacer {
+  height: 2px;
+}
+
+/* Special styling for different message types */
+.success-message {
+  color: #6a9955;
+  font-weight: bold;
+}
+
+.error-message {
+  color: #f14c4c;
+  font-weight: bold;
+}
+
+.warning-message {
+  color: #cca700;
+  font-weight: bold;
+}
+
+.start-message {
+  color: #4fc1ff;
+  font-weight: bold;
+}
+
+/* Keep Maven output more compact */
+.maven-line {
+  color: #b0b0b0;
+  font-size: 0.95em;
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+/* URL Button styles */
+.url-buttons {
+  margin-top: 20px;
+}
+
+.button-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.url-button {
+  background-color: #2c2c32;
+  color: #cccccc;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  flex-grow: 1;
+  text-align: center;
+  font-size: 13px;
+}
+
+.url-button:hover {
+  background-color: #3c3c3c;
+}
+
+h3 {
+  margin-bottom: 10px;
+  color: #cccccc;
+  font-size: 14px;
+}
+
+.configuration-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #888888;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Logo and bubble animation styles */
+.lurking-logo {
+  position: fixed;
+  bottom: -120px; /* Half hidden: adjust based on actual logo size */
+  right: 20px;
+  width: 180px;
+  height: 180px;
+  z-index: 1;
+  opacity: 0.7;
+  cursor: pointer; /* Add cursor pointer to indicate it's clickable */
+  transition: bottom 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+}
+
+.lurking-logo.revealed {
+  bottom: 0px; /* Fully revealed */
+  opacity: 1;
+}
+
+/* Bubble animations */
+.bubble {
+  position: absolute;
+  background-color: rgba(131, 220, 243, 0.6); /* Light blue color */
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2; /* Make bubbles appear over the logo */
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-100px);
+    opacity: 0;
+  }
+}
+
+/* Bubble container to overlap with the logo */
+.bubble-container {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 220px;
+  height: 220px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2; /* Position above the logo */
+}
+
+/* Ensure all content is properly wrapped */
+.plain-text, .spring-log, .ascii-art {
+  white-space: pre-wrap;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .button-container {
+    flex-direction: column;
+  }
+  .url-button {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 320px) {
+  .component-name {
+    max-width: 60px; /* About 5 characters */
+  }
+
+  #output {
+    font-size: 12px;
+  }
+
+  .timestamp {
+    font-size: 0.9em;
+  }
+}
+
+@media (max-width: 280px) {
+  .component-name {
+    max-width: 40px; /* About 3 characters */
+  }
+}
+
+@media (max-width: 200px) {
+  .component-name {
+    max-width: 20px; /* About one character */
+  }
+}

@@ -486,24 +486,19 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Get the configured URL buttons
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     let urlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
-
-
+  
     // Check for discovered web apps
     const discoveredApps = WebAppDiscovery.getInstance().getWebApps();
-
     urlButtons = discoveredApps;
-
     let automaticallyDiscoveredApps = discoveredApps.length > 0;
-
+  
     // add buttons from config
     const configuredUrlButtons = config.get('urlButtons') as Array<{label: string, url: string}>;
     if (configuredUrlButtons != null && configuredUrlButtons.length > 0) {
       urlButtons = configuredUrlButtons;
-      console.log("Configured URL buttons:", urlButtons);
       automaticallyDiscoveredApps = false;
     }
-    console.log("Automatically discovered apps:", automaticallyDiscoveredApps);
-
+  
     // Generate button HTML
     let urlButtonsHtml = '';
     if (urlButtons && urlButtons.length > 0) {
@@ -525,263 +520,26 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         </div>
       `;
     }
-
-    // Get proper URI for the logo image
+  
+    // Get proper URI for external resources
+    const webview = this._view?.webview;
     const logoPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'sapmachine.svg');
-    const logoUri = this._view?.webview.asWebviewUri(logoPath);
-
+    const logoUri = webview?.asWebviewUri(logoPath);
+    
+    // Get CSS and JS files
+    const cssPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'styles.css');
+    const cssUri = webview?.asWebviewUri(cssPath);
+    
+    const jsPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'webview.js');
+    const jsUri = webview?.asWebviewUri(jsPath);
+  
     return `
       <html>
       <head>
-        <style>
-          body {
-            font-family: sans-serif;
-            padding: 10px;
-          }
-          .large-button {
-            background-color: #007acc;
-            color: white;
-            font-size: 16px;
-            padding: 16px;
-            width: 100%;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-bottom: 5px;
-          }
-          .extension-tagline {
-            margin: 12px 0;
-            text-align: center;
-            color: #888888;
-            font-size: 12px;
-            font-style: italic;
-            padding: 6px;
-            border-top: 1px solid #3c3c3c;
-            border-bottom: 1px solid #3c3c3c;
-            background-color: rgba(60, 60, 60, 0.1);
-            border-radius: 3px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .extension-tagline::before {
-            content: "⚡";
-            margin-right: 6px;
-            font-size: 14px;
-          }
-          #output {
-            margin-top: 15px;
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 10px;
-            height: 300px;
-            overflow-y: auto;
-            border-radius: 4px;
-            font-family: monospace;
-            line-height: 1;
-            font-size: 13px;
-          }
-
-          .timestamp {
-            color: #8a8a8a;
-            margin-right: 0px;
-          }
-
-          .log-level {
-            display: inline-block;
-            width: 5px;        /* Fixed width for all emoji icons */
-            text-align: center; /* Center the emoji within its container */
-            margin-right: 5px;
-          }
-
-          .component-name {
-            color: #569cd6;
-            font-weight: bold;
-            display: inline-block;
-            max-width: 200px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: hide;
-            vertical-align: bottom;
-          }
-
-          .maven-line {
-            color: #b0b0b0;
-            font-size: 0.95em;
-          }
-
-          @media (max-width: 320px) {
-            .component-name {
-              max-width: 60px; /* About 5 characters */
-            }
-
-            #output {
-              font-size: 12px;
-            }
-
-            .timestamp {
-              font-size: 0.9em;
-            }
-          }
-
-          @media (max-width: 280px) {
-            .component-name {
-              max-width: 40px; /* About 3 characters */
-            }
-          }
-
-          @media (max-width: 200px) {
-            .component-name {
-              max-width: 20px; /* About one character */
-            }
-          }
-
-          .url-buttons {
-            margin-top: 20px;
-          }
-          .button-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-          .url-button {
-            background-color: #2c2c32;
-            color: #cccccc;
-            border: 1px solid #3c3c3c;
-            border-radius: 4px;
-            padding: 8px 12px;
-            cursor: pointer;
-            flex-grow: 1;
-            text-align: center;
-            font-size: 13px;
-          }
-          .url-button:hover {
-            background-color: #3c3c3c;
-          }
-          h3 {
-            margin-bottom: 10px;
-            color: #cccccc;
-            font-size: 14px;
-          }
-          .configuration-hint {
-            margin-top: 8px;
-            font-size: 11px;
-            color: #888888;
-            text-align: center;
-            font-style: italic;
-          }
-          /* Mobile optimizations */
-          @media (max-width: 480px) {
-            .button-container {
-              flex-direction: column;
-            }
-            .url-button {
-              width: 100%;
-              padding: 12px;
-              font-size: 16px;
-            }
-          }
-          /* Modified lurking logo styling - removed hover animation */
-          .lurking-logo {
-            position: fixed;
-            bottom: -120px; /* Half hidden: adjust based on actual logo size */
-            right: 20px;
-            width: 180px;
-            height: 180px;
-            z-index: 1;
-            opacity: 0.7;
-            cursor: pointer; /* Add cursor pointer to indicate it's clickable */
-            transition: bottom 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
-          }
-
-          /* Removed the hover rule */
-
-          .lurking-logo.revealed {
-            bottom: 0px; /* Fully revealed */
-            opacity: 1;
-          }
-
-          /* Bubble animations */
-          .bubble {
-            position: absolute;
-            background-color: rgba(131, 220, 243, 0.6); /* Light blue color */
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 2; /* Make bubbles appear over the logo */
-          }
-
-          @keyframes float {
-            0% {
-              transform: translateY(0);
-              opacity: 0;
-            }
-            20% {
-              opacity: 0.7;
-            }
-            100% {
-              transform: translateY(-100px);
-              opacity: 0;
-            }
-          }
-
-          /* Modified bubble container to overlap with the logo */
-          .bubble-container {
-            position: fixed;
-            bottom: 0;
-            right: 0;
-            width: 220px;
-            height: 220px;
-            overflow: hidden;
-            pointer-events: none;
-            z-index: 2; /* Position above the logo */
-          }
-
-          /* Consistent log line spacing */
-          .log-line {
-            margin: 0;
-            padding: 2px 0;
-            line-height: 1.4;
-            white-space: pre-wrap;
-          }
-
-          .log-spacer {
-            height: 2px;
-          }
-
-          /* Special styling for different message types */
-          .success-message {
-            color: #6a9955;
-            font-weight: bold;
-          }
-
-          .error-message {
-            color: #f14c4c;
-            font-weight: bold;
-          }
-
-          .warning-message {
-            color: #cca700;
-            font-weight: bold;
-          }
-
-          .start-message {
-            color: #4fc1ff;
-            font-weight: bold;
-          }
-
-          /* Keep Maven output more compact */
-          .maven-line {
-            color: #b0b0b0;
-            font-size: 0.95em;
-            padding-top: 1px;
-            padding-bottom: 1px;
-          }
-
-          /* Ensure all content is properly wrapped */
-          .plain-text, .spring-log, .ascii-art {
-            white-space: pre-wrap;
-          }
-        </style>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="${cssUri}">
+        <title>CAP in the Pocket</title>
       </head>
       <body>
         <button id="restartButton" class="large-button">
@@ -794,225 +552,17 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           Experimental CAP-in-the-Pocket Extension
         </div>
         <pre id="output"></pre>
-
+  
         ${urlButtonsHtml}
-
+  
         <div class="bubble-container" id="bubbleContainer"></div>
         <img src="${logoUri}" class="lurking-logo" id="sapLogo" alt="SAP Machine logo lurking" />
-
+  
         <script>
-          const vscode = acquireVsCodeApi();
-          const restartButton = document.getElementById('restartButton');
-          const recompileButton = document.getElementById('recompileButton');
-          const output = document.getElementById('output');
-          const logo = document.getElementById('sapLogo');
-          const bubbleContainer = document.getElementById('bubbleContainer');
-          let revealed = false;
-          let bubbleInterval;
-
-          let hideLogoTimer;
-
-          logo.addEventListener('click', () => {
-            revealed = !revealed;
-
-            // Clear any existing timer
-            if (hideLogoTimer) {
-              clearTimeout(hideLogoTimer);
-              hideLogoTimer = null;
-            }
-
-            if (revealed) {
-              logo.classList.add('revealed');
-              startBubbles();
-
-              // Set timer to auto-hide after 5 seconds
-              hideLogoTimer = setTimeout(() => {
-                revealed = false;
-                logo.classList.remove('revealed');
-                stopBubbles();
-                hideLogoTimer = null;
-              }, 5000);
-            } else {
-              logo.classList.remove('revealed');
-              stopBubbles();
-            }
-          });
-
-          // Create and animate bubbles
-          function startBubbles() {
-            // Clear any existing interval
-            if (bubbleInterval) clearInterval(bubbleInterval);
-
-            // Create new bubbles every 300ms
-            bubbleInterval = setInterval(() => {
-              if (!revealed) return;
-
-              // Create 1-3 bubbles
-              for (let i = 0; i < Math.floor(1 + Math.random() * 2); i++) {
-                createBubble();
-              }
-            }, 300);
-          }
-
-          function stopBubbles() {
-            if (bubbleInterval) {
-              clearInterval(bubbleInterval);
-              bubbleInterval = null;
-            }
-          }
-
-          function createBubble() {
-            const bubble = document.createElement('div');
-            bubble.className = 'bubble';
-
-            // Random size between 5px and 15px
-            const size = 5 + Math.random() * 10;
-            bubble.style.width = \`\${size}px\`;
-            bubble.style.height = \`\${size}px\`;
-
-            // Position randomly within container
-            // Adjusted to allow bubbles to overlap with the logo more
-            bubble.style.left = \`\${10 + Math.random() * 160}px\`;
-            bubble.style.bottom = \`\${10 + Math.random() * 50}px\`;
-
-            // Random animation duration
-            const duration = 2 + Math.random() * 2;
-            bubble.style.animation = \`float \${duration}s ease-in-out\`;
-
-            bubbleContainer.appendChild(bubble);
-
-            // Remove bubble after animation completes
-            setTimeout(() => {
-              if (bubbleContainer.contains(bubble)) {
-                bubbleContainer.removeChild(bubble);
-              }
-            }, duration * 1000);
-          }
-
-          // Your existing event handlers
-          restartButton.onclick = () => {
-            vscode.postMessage({ command: 'restart' });
-          };
-
-          recompileButton.onclick = () => {
-            vscode.postMessage({ command: 'recompile' });
-          };
-
-          // URL buttons
-          document.querySelectorAll('.url-button').forEach(btn => {
-            btn.addEventListener('click', () => {
-              const url = btn.getAttribute('data-url');
-              vscode.postMessage({ command: 'openUrl', url });
-            });
-          });
-
-          // Listen for messages from the extension
-          let messageCount = 0;
-          const maxMessages = ${config.get('maxLogMessages') || 10000}; // Get from configuration
-
-          window.addEventListener('message', event => {
-            if (event.data.log) {
-              // Add new log message
-              messageCount++;
-
-              // Always wrap in a div for consistent styling
-              const tempDiv = document.createElement('div');
-
-              // If the content is already HTML, use it directly
-              if (event.data.log.includes('<div') || event.data.log.includes('<span')) {
-                tempDiv.innerHTML = event.data.log;
-              } else {
-                // For raw text messages like "Process completed successfully", add proper styling
-                let logClass = 'plain-text';
-
-                if (event.data.log.includes('✅')) {
-                  logClass = 'success-message';
-                } else if (event.data.log.includes('❌')) {
-                  logClass = 'error-message';
-                } else if (event.data.log.includes('⚠️')) {
-                  logClass = 'warning-message';
-                } else if (event.data.log.includes('▶️')) {
-                  logClass = 'start-message';
-                }
-
-                tempDiv.innerHTML = \`<div class="log-line \${logClass}">\${event.data.log}</div>\`;
-              }
-
-              output.appendChild(tempDiv);
-
-              // Trim old messages if needed
-              if (maxMessages > 0 && messageCount > maxMessages) {
-                trimOldMessages();
-              }
-
-              output.scrollTop = output.scrollHeight;
-            }
-
-            // Handle button updates
-            if (event.data.command === 'updateButtons') {
-              updateUrlButtons(event.data.buttons, event.data.automaticallyDiscovered);
-            }
-          });
-
-          // Function to remove old messages
-          function trimOldMessages() {
-            // Keep removing the first child until we're within the limit
-            while (output.childNodes.length > maxMessages) {
-              if (output.firstChild) {
-                output.removeChild(output.firstChild);
-                messageCount--;
-              } else {
-                break;
-              }
-            }
-          }
-
-          // Add the button update function in the script section
-          function updateUrlButtons(buttons, automaticallyDiscovered) {
-            // Find or create buttons container
-            let buttonContainer = document.querySelector('.url-buttons');
-
-            if (!buttons || buttons.length === 0) {
-              // Remove the container if no buttons
-              if (buttonContainer) {
-                buttonContainer.remove();
-              }
-              return;
-            }
-
-            // Create container if it doesn't exist
-            if (!buttonContainer) {
-              buttonContainer = document.createElement('div');
-              buttonContainer.className = 'url-buttons';
-              document.body.insertBefore(buttonContainer, document.getElementById('bubbleContainer'));
-            }
-
-            // Update the content
-            buttonContainer.innerHTML = \`
-              <h3>Application Links</h3>
-              <div class="button-container">
-                \${buttons.map(button => \`
-                  <button class="url-button" data-url="\${button.url}">
-                    \${button.label}
-                  </button>
-                \`).join('')}
-              </div>
-              \${automaticallyDiscovered ? \`
-              <p class="configuration-hint">
-                Automatically discovered application links.
-              </p>
-              \` : ''}
-            \`;
-
-            // Re-attach event listeners to the buttons
-            document.querySelectorAll('.url-button').forEach(btn => {
-              btn.addEventListener('click', () => {
-                const url = btn.getAttribute('data-url');
-                vscode.postMessage({ command: 'openUrl', url });
-              });
-            });
-          }
+          // Pass config values to the JavaScript file
+          const maxMessageLimit = ${config.get('maxLogMessages') || 10000};
         </script>
+        <script src="${jsUri}"></script>
       </body>
       </html>
     `;
@@ -1036,15 +586,20 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         return '<div class="log-spacer"></div>';
       }
 
+      // Special handling for separator lines (like dashes, equals signs)
+      if (/^[-=*]{3,}$/.test(line.trim()) || line.trim().startsWith('----------')) {
+        return `<div class="log-line ascii-art"><pre style="margin: 0; font-family: monospace; line-height: 1">${this.escapeHtml(line)}</pre></div>`;
+      }
+
       // Special handling for Maven's Spring Boot ASCII art
       if (line.includes('____') || line.includes('\\/') || line.includes('/\\\\') ||
-          line.includes('( ( )') || line.includes("'  |") || line.includes(' ====')){
-        return `<div class="log-line ascii-art">${this.escapeHtml(line)}</div>`;
+          line.includes('( ( )') || line.includes("'  |") || line.includes(' ====')) {
+        return `<div class="log-line ascii-art"><pre style="margin: 0; font-family: monospace; line-height: 1">${this.escapeHtml(line)}</pre></div>`;
       }
 
       // Spring Boot version line
       if (line.includes(':: Spring Boot ::')) {
-        return `<div class="log-line spring-boot-version">${this.escapeHtml(line)}</div>`;
+        return `<div class="log-line spring-boot-version"><pre style="margin: 0; font-family: monospace">${this.escapeHtml(line)}</pre></div>`;
       }
 
       // Format Spring Boot log lines
