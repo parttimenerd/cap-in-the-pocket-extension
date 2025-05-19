@@ -96,6 +96,11 @@
           "type": "boolean",
           "default": true,
           "description": "Use /dist/ URLs instead of /webapp/ URLs for discovered applications"
+        },
+        "cap-in-the-pocket.maxLogMessages": {
+          "type": "number",
+          "default": 10000,
+          "description": "Maximum number of log messages to keep in the output view (0 for unlimited)"
         }
       }
     }
@@ -107,5 +112,12 @@
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.70.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "files": [
+    "dist",
+    "media/**",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ]
 }

@@ -292,9 +292,8 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Get configured commands from settings
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const port = config.get('serverPort') as number || 4004;
-    const killPortCommand = config.get('killPortCommand') as string ||
-      `(lsof -ti:${port} | xargs kill -9) || killall java || true`;
-    const runCommand = config.get('runCommand') as string || 'mvn spring-boot:run -B';
+    const killPortCommand = (config.get('killPortCommand') as string).replace("PORT", port.toString());
+    const runCommand = (config.get('runCommand') as string).replace("PORT", port.toString());
 
     // Update webview UI to show "running" state with the correct folder
     webview.postMessage({
@@ -862,8 +861,14 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           });
 
           // Listen for messages from the extension
+          let messageCount = 0;
+          const maxMessages = ${config.get('maxLogMessages') || 10000}; // Get from configuration
+
           window.addEventListener('message', event => {
             if (event.data.log) {
+              // Add new log message
+              messageCount++;
+          
               // Check if the log content appears to be HTML
               if (event.data.log.includes('<span') || event.data.log.includes('<div')) {
                 // Append as HTML
@@ -875,6 +880,12 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
                 const textNode = document.createTextNode(event.data.log);
                 output.appendChild(textNode);
               }
+              
+              // Trim old messages if we exceed the limit (and limit is not 0/disabled)
+              if (maxMessages > 0 && messageCount > maxMessages) {
+                trimOldMessages();
+              }
+              
               output.scrollTop = output.scrollHeight;
             }
             
@@ -883,6 +894,19 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
               updateUrlButtons(event.data.buttons, event.data.automaticallyDiscovered);
             }
           });
+          
+          // Function to remove old messages
+          function trimOldMessages() {
+            // Keep removing the first child until we're within the limit
+            while (output.childNodes.length > maxMessages) {
+              if (output.firstChild) {
+                output.removeChild(output.firstChild);
+                messageCount--;
+              } else {
+                break;
+              }
+            }
+          }
 
           // Add the button update function in the script section
           function updateUrlButtons(buttons, automaticallyDiscovered) {
