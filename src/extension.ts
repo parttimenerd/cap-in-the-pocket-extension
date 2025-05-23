@@ -812,6 +812,11 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           regex: /'([^']*)'/g,
           cssClass: "json-string"
         },
+        // Progress indicators like [1/4], [2/2], etc.
+        {
+          regex: /\[(\d+)\/(\d+)\]/g,
+          cssClass: "highlight-progress"
+        },
         // URLs
         {
           regex: /(https?:\/\/[^\s]+)/g,

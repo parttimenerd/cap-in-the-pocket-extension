@@ -596,3 +596,11 @@ h3 {
     display: none !important;
   }
 }
+
+.highlight-progress {
+  color: #6bb0ff;
+  font-weight: bold;
+  padding: 0 2px;
+  background-color: rgba(107, 176, 255, 0.1);
+  border-radius: 3px;
+}
