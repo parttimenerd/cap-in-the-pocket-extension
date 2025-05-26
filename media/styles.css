@@ -307,6 +307,75 @@ h3 {
   }
 }
 
+/* Mobile responsiveness for the lurking SAPMachine logo */
+@media (max-width: 600px) {
+  .lurking-logo {
+    width: 140px;
+    height: 140px;
+    right: 10px;
+    bottom: -90px; /* Adjust how much is hidden */
+  }
+
+  .lurking-logo.revealed {
+    bottom: -10px; /* Show less of the submarine */
+  }
+
+  /* Ensure the bubble container matches the logo size */
+  .bubble-container {
+    width: 160px;
+    height: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lurking-logo {
+    width: 110px;
+    height: 110px;
+    right: 5px;
+    bottom: -70px;
+    opacity: 0.6; /* More transparent on smaller screens */
+  }
+
+  .lurking-logo.revealed {
+    bottom: -20px;
+    opacity: 0.8;
+  }
+
+  .bubble-container {
+    width: 130px;
+    height: 130px;
+  }
+
+  /* Ensure buttons have enough space */
+  .url-buttons {
+    margin-bottom: 100px; /* Add space for the submarine */
+  }
+}
+
+@media (max-width: 350px) {
+  .lurking-logo {
+    width: 90px;
+    height: 90px;
+    bottom: -60px;
+  }
+
+  .lurking-logo.revealed {
+    bottom: -30px;
+  }
+
+  .bubble-container {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+/* Add this to hide the submarine on very small screens */
+@media (max-width: 320px) {
+  .lurking-logo, .bubble-container {
+    display: none;
+  }
+}
+
 /* Separator line styling */
 .separator-line {
   display: block;
@@ -578,7 +647,7 @@ h3 {
   color: white;
 }
 
-@media (max-width: 400px) {
+@media (max-width: 450px) {
   .search-container button#toggleCase,
   .search-container button#toggleRegex {
     display: none; /* Hide buttons on small screens */
@@ -588,7 +657,7 @@ h3 {
   }
 }
 
-@media (max-width: 300px) {
+@media (max-width: 350px) {
   .search-container {
     display: none !important;
   }

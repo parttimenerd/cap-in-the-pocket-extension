@@ -628,8 +628,9 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         return `<div class="log-line maven-section-header">${this.escapeHtml(headerText)}</div>`;
       }
 
-      // Format Spring Boot log lines
-      if (line.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d+[+-]\d{2}:\d{2}\s+\w+\s+\d+\s+---/)) {
+      // Format Spring Boot log lines - improved pattern matching
+      if (line.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+(Z|[+-]\d{2}:\d{2})\s+\w+\s+\d+\s+---/) ||
+          line.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\s+\w+\s+\d+\s+---/)) { // Handle missing timezone
         // Extract just the time portion from ISO timestamp (HH:MM:SS)
         const timeMatch = line.match(/T(\d{2}:\d{2}:\d{2})/);
         const timeString = timeMatch ? timeMatch[1] : '';
@@ -845,6 +846,10 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         // File paths (simplified to avoid regex catastrophic backtracking)
         {
           regex: /(\/|\.\.?\/)([\w\-\.\/]+)/g,
+          cssClass: "highlight-path"
+        },
+        {
+          regex: /target\/[a-zA-z.0-9]+/g,
           cssClass: "highlight-path"
         },
         // Windows file paths
