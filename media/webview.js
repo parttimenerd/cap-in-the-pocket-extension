@@ -450,6 +450,44 @@
     if (event.data.log) {
       addLogMessage(event.data.log);
     }
+    
+    // Handle clearOutput command
+    if (event.data.command === 'clearOutput') {
+      output.innerHTML = '';
+      messageCount = 0;
+    }
+    
+    // Handle restoreLogs command - this allows bulk restore of logs
+    if (event.data.command === 'restoreLogs' && event.data.log) {
+      // Handle logs more carefully - especially with formatted JSON
+      output.innerHTML = '';  // Clear first
+      
+      // Create a temporary container
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div>${event.data.log}</div>`, 'text/html');
+      
+      // Extract all nodes from the parsed document body and append them to output
+      const nodesFromLog = doc.body.firstChild.childNodes;
+      nodesFromLog.forEach(node => {
+        output.appendChild(document.importNode(node, true));
+      });
+      
+      // Update message count estimate based on log lines
+      messageCount = output.querySelectorAll('.log-line').length || 
+                     event.data.log.split('\n').length;  // Fallback if no log-line divs
+    }
+
+    // Handle restoreRawLogs command
+    if (event.data.command === 'restoreRawLogs' && event.data.logs) {
+      // Clear before restoring
+      output.innerHTML = '';
+      messageCount = 0;
+      
+      // Process each log entry individually (like when it was first received)
+      event.data.logs.forEach(log => {
+        addLogMessage(log);
+      });
+    }
 
     // Handle button updates
     if (event.data.command === 'updateButtons') {

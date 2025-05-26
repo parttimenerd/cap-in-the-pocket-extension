@@ -218,9 +218,13 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
+// Update the class to store both raw and formatted logs
 class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
   private context: vscode.ExtensionContext;
   private _view?: vscode.WebviewView;
+  // Store raw logs separately from formatted logs
+  private logHistory: string = '';
+  private rawLogHistory: string[] = [];
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
@@ -269,6 +273,22 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       }
     });
 
+    // Add visibility change handler - this is key for restoring logs when the sidebar is reopened
+    webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible && this.rawLogHistory.length > 0) {
+        // Clear existing output first
+        webviewView.webview.postMessage({ command: 'clearOutput' });
+        
+        // Send raw logs for reprocessing on the client side
+        setTimeout(() => {
+          webviewView.webview.postMessage({
+            command: 'restoreRawLogs',
+            logs: this.rawLogHistory
+          });
+        }, 300);
+      }
+    });
+
     // Start scanning for web apps
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const port = config.get('serverPort') as number || 4004;
@@ -276,6 +296,42 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
 
     // Send initial buttons (after a short delay to ensure webview is ready)
     setTimeout(() => this.updateUrlButtons(), 100);
+
+    // We don't need this anymore as onDidChangeVisibility will handle it
+    // if (this.logHistory) {
+    //   setTimeout(() => {
+    //     webviewView.webview.postMessage({
+    //       log: this.logHistory,
+    //     });
+    //   }, 500);
+    // }
+  }
+
+  private logToWebview(webview: vscode.Webview, message: string): void {
+    // Add to history first
+    this.addToLogHistory(message);
+    // Then send to webview
+    webview.postMessage({ log: message });
+  }
+  
+  // Update this method to store raw logs too
+  private addToLogHistory(log: string): void {
+    this.logHistory += log;
+    this.rawLogHistory.push(log);
+    
+    // Optional: Implement log size management
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
+    const maxLogSize = config.get('maxLogMessages') as number || 10000;
+    
+    // Simple truncation if log gets too large
+    if (this.rawLogHistory.length > maxLogSize) {
+      this.rawLogHistory = this.rawLogHistory.slice(-maxLogSize);
+      // Rebuild formatted log history from raw logs
+      this.logHistory = '';
+      for (const rawLog of this.rawLogHistory) {
+        this.logHistory += this.formatLogOutput(rawLog);
+      }
+    }
   }
 
   private restart(webview: vscode.Webview) {
@@ -296,9 +352,8 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     const runCommand = (config.get('runCommand') as string).replace("PORT", port.toString());
 
     // Update webview UI to show "running" state with the correct folder
-    webview.postMessage({
-      log: `\n▶️ Running in ${projectRoot}:\n    Stopping processes on port ${port} and starting CAP app...\n\n`
-    });
+    const logMessage = `\n▶️ Running in ${projectRoot}:\n    Stopping processes on port ${port} and starting CAP app...\n\n`;
+    this.logToWebview(webview, logMessage);
 
     // Execute the shell command in the project root directory
     const options = {
@@ -317,11 +372,11 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     );
 
     killPortProcess.on('close', (code: number) => {
-      webview.postMessage({
-        log: code === 0
-          ? `✅ Stopped existing processes using port ${port}\n\n`
-          : `ℹ️ No processes were using port ${port}\n\n`
-      });
+      const closeMessage = code === 0
+        ? `✅ Stopped existing processes using port ${port}\n\n`
+        : `ℹ️ No processes were using port ${port}\n\n`;
+
+      this.logToWebview(webview, closeMessage);
 
       // Now start the configured run process
       const childProcess = require('child_process').spawn(runCommand, [], options);
@@ -330,14 +385,14 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       childProcess.stdout.on('data', (data: Buffer) => {
         const rawOutput = data.toString();
         const formattedOutput = this.formatLogOutput(rawOutput);
-        webview.postMessage({ log: formattedOutput });
+        this.logToWebview(webview, formattedOutput);
       });
 
       // Stream stderr in real-time
       childProcess.stderr.on('data', (data: Buffer) => {
         const rawOutput = data.toString();
         const formattedOutput = this.formatLogOutput(rawOutput);
-        webview.postMessage({ log: formattedOutput });
+        this.logToWebview(webview, formattedOutput);
       });
 
       // Handle process completion
@@ -345,7 +400,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         const exitMessage = code === 0
           ? "\n✅ Process completed successfully.\n"
           : `\n⚠️ Process exited with code ${code}.\n`;
-        webview.postMessage({ log: exitMessage });
+        this.logToWebview(webview, exitMessage);
       });
 
       // Handle process errors
@@ -385,9 +440,9 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       }
     };
 
-    webview.postMessage({
-      log: `\n▶️ Recompiling the CAP app, the Spring Boot Dev Tools should reload the Java part...\n\n`
-    });
+    const logMessage = `\n▶️ Recompiling the CAP app, the Spring Boot Dev Tools should reload the Java part...\n\n`;
+    this.addToLogHistory(logMessage);
+    webview.postMessage({ log: logMessage });
 
     // Now start the configured compile process
     const childProcess = require('child_process').spawn(compileCommand, [], options);
@@ -396,6 +451,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     childProcess.stdout.on('data', (data: Buffer) => {
       const rawOutput = data.toString();
       const formattedOutput = this.formatLogOutput(rawOutput);
+      this.addToLogHistory(formattedOutput);
       webview.postMessage({ log: formattedOutput });
     });
 
@@ -403,6 +459,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     childProcess.stderr.on('data', (data: Buffer) => {
       const rawOutput = data.toString();
       const formattedOutput = this.formatLogOutput(rawOutput);
+      this.addToLogHistory(formattedOutput);
       webview.postMessage({ log: formattedOutput });
     });
 
@@ -411,6 +468,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       const exitMessage = code === 0
         ? "\n✅ Process completed successfully.\n"
         : `\n⚠️ Process exited with code ${code}.\n`;
+      this.addToLogHistory(exitMessage);
       webview.postMessage({ log: exitMessage });
     });
 
@@ -678,27 +736,33 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         // Check if the message ends with JSON content
         let formattedMessage = this.escapeHtml(message);
         let hasJSON = false;
+
+        // More strict JSON detection - parse content between matching braces
         if (message.includes('{') && message.endsWith('}')) {
           const firstOpeningBrace = message.indexOf('{');
           const lastClosingBrace = message.lastIndexOf('}');
-          for (let i = lastClosingBrace; i >= firstOpeningBrace; i--) {
-            if (message[i] === '{') {
-              // try to parse the JSON
-              try {
-                const jsonString = message.substring(i, lastClosingBrace + 1);
-                const jsonObject = JSON.parse(jsonString);
-                // Format JSON with indentation
-                const formattedJson = JSON.stringify(jsonObject, null, 2);
+          
+          // Make sure we're not parsing stack traces with braces
+          // Stack traces typically have patterns like "ClassName.method(" or line numbers
+          const potentialJson = message.substring(firstOpeningBrace, lastClosingBrace + 1);
+          const looksLikeStackTrace = potentialJson.match(/\b[A-Za-z]+\.[A-Za-z]+\(/) || 
+                                     potentialJson.match(/:[0-9]+\)$/);
+          
+          if (!looksLikeStackTrace) {
+            try {
+              const jsonString = message.substring(firstOpeningBrace, lastClosingBrace + 1);
+              const jsonObject = JSON.parse(jsonString);
+              // Format JSON with indentation
+              const formattedJson = JSON.stringify(jsonObject, null, 2);
 
-                // Apply syntax highlighting to the JSON
-                const textBeforeJson = this.highlightImportantStrings(message.substring(0, i));
-                const highlightedJson = this.syntaxHighlightJson(formattedJson);
+              // Apply syntax highlighting to the JSON
+              const textBeforeJson = this.highlightImportantStrings(message.substring(0, firstOpeningBrace));
+              const highlightedJson = this.syntaxHighlightJson(formattedJson);
 
-                formattedMessage = `${textBeforeJson}<pre class="json-content">${highlightedJson}</pre>`;
-                hasJSON = true;
-                break;
-              } catch (e) {
-              }
+              formattedMessage = `${textBeforeJson}<pre class="json-content">${highlightedJson}</pre>`;
+              hasJSON = true;
+            } catch (e) {
+              // Not valid JSON, continue with normal formatting
             }
           }
         }
