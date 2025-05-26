@@ -278,7 +278,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
       if (webviewView.visible && this.rawLogHistory.length > 0) {
         // Clear existing output first
         webviewView.webview.postMessage({ command: 'clearOutput' });
-        
+
         // Send raw logs for reprocessing on the client side
         setTimeout(() => {
           webviewView.webview.postMessage({
@@ -313,16 +313,16 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     // Then send to webview
     webview.postMessage({ log: message });
   }
-  
+
   // Update this method to store raw logs too
   private addToLogHistory(log: string): void {
     this.logHistory += log;
     this.rawLogHistory.push(log);
-    
+
     // Optional: Implement log size management
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const maxLogSize = config.get('maxLogMessages') as number || 10000;
-    
+
     // Simple truncation if log gets too large
     if (this.rawLogHistory.length > maxLogSize) {
       this.rawLogHistory = this.rawLogHistory.slice(-maxLogSize);
@@ -646,6 +646,25 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         return '<div class="log-spacer"></div>';
       }
 
+      // Handle Maven build output with 📦 prefix
+      if (line.includes('📦')) {
+        // Check for separator lines (with dashes)
+        if (line.includes('--------')) {
+          // Replace the dashed lines with a visual separator
+          return '<div class="log-line maven-separator"></div>';
+        } else if (line.includes('BUILD SUCCESS')) {
+          return `<div class="log-line build-success">${this.escapeHtml(line)}</div>`;
+        } else if (line.includes('BUILD FAILURE')) {
+          return `<div class="log-line build-failure">${this.escapeHtml(line)}</div>`;
+        } else if (line.includes('Reactor Summary')) {
+          return `<div class="log-line maven-summary-header">${this.escapeHtml(line)}</div>`;
+        } else if (line.match(/📦\s+[a-zA-Z0-9.:-]+\s+\.+\s+SUCCESS/)) {
+          return `<div class="log-line maven-module-success">${this.escapeHtml(line)}</div>`;
+        } else {
+          return `<div class="log-line maven-output">${this.escapeHtml(line)}</div>`;
+        }
+      }
+
       // Special handling for separator lines (like dashes, equals signs)
       if (/^[-=*]{3,}$/.test(line.trim()) || line.trim().startsWith('----------')) {
         return `<div class="log-line separator-line">
@@ -686,6 +705,98 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         return `<div class="log-line maven-section-header">${this.escapeHtml(headerText)}</div>`;
       }
 
+      // Detect and format Maven section headers enclosed in dashes
+      if (line.match(/-{10,}< .+ >-{10,}/)) {
+        return `<div class="log-line maven-section-header">${this.highlightImportantStrings(line)}</div>`;
+      }
+
+      // Maven build summary separator
+      if (/^\[INFO\] -{10,}$/.test(line)) {
+        return `<div class="log-line maven-separator"><hr /></div>`;
+      }
+
+      // Maven build summary header
+      if (line.includes('[INFO] Reactor Summary for ') || line.includes('[INFO] BUILD SUCCESS') || line.includes('[INFO] BUILD FAILURE')) {
+        const buildResult = line.includes('SUCCESS') ?
+          '<span class="build-success">BUILD SUCCESS</span>' :
+          (line.includes('FAILURE') ? '<span class="build-failure">BUILD FAILURE</span>' : '');
+
+        // Replace the [INFO] with a special icon for summary header
+        const formattedLine = line.replace(/\[INFO\]/, '🏁');
+
+        return `<div class="log-line maven-summary-header">${buildResult || formattedLine}</div>`;
+      }
+
+      // Maven module build result line - improved to handle dots properly
+      if (line.match(/\[INFO\] [\w\s:.()-]+(\.+) (SUCCESS|FAILURE) \[\s*[0-9.]+\s*[a-z]\]/)) {
+        // Extract module name, removing the dots completely
+        const moduleMatch = line.match(/\[INFO\] ([\w\s:.()-]+)(\.+) (SUCCESS|FAILURE) \[\s*([0-9.]+)\s*([a-z])\]/);
+      
+        if (moduleMatch) {
+          const moduleName = moduleMatch[1].trim();
+          const status = moduleMatch[3];
+          const time = moduleMatch[4];
+          const timeUnit = moduleMatch[5];
+      
+          // Format with status icon
+          const statusIcon = status === 'SUCCESS' ? '✅' : '❌';
+          const statusClass = status === 'SUCCESS' ? 'module-success' : 'module-failure';
+      
+          // Keep everything on one line with proper spacing
+          return `<div class="log-line maven-module-result ${statusClass}">
+            <span class="module-name">${moduleName}</span>
+            <span class="module-status">${statusIcon}</span>
+            <span class="module-time">[${time} ${timeUnit}]</span>
+          </div>`;
+        }
+      }
+      
+
+      // Maven build timing info - improved formatting
+      if (line.match(/\[INFO\] (Total time:|Finished at:)/)) {
+        // Check if it's a timestamp line
+        if (line.includes('Finished at:')) {
+          // Extract the ISO timestamp
+          const timestampMatch = line.match(/Finished at: ([\d\-T:.+]+)/);
+          if (timestampMatch && timestampMatch[1]) {
+            try {
+              // Parse the ISO timestamp
+              const isoTimestamp = timestampMatch[1];
+              const date = new Date(isoTimestamp);
+              
+              // Format date and time in a more readable way
+              const formattedDate = date.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              });
+              
+              const formattedTime = date.toLocaleTimeString(undefined, {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              });
+              
+              // Return formatted time with nice styling
+              return `<div class="log-line maven-timing-info">
+                <span class="timing-icon">⏱️</span>
+                <span class="timing-label">Finished on:</span>
+                <span class="timing-date">${formattedDate}</span>
+                <span class="timing-time">${formattedTime}</span>
+              </div>`;
+            } catch (e) {
+              // Fallback if date parsing fails
+              const formattedLine = line.replace(/\[INFO\]/, '⏱️');
+              return `<div class="log-line maven-timing-info">${formattedLine}</div>`;
+            }
+          }
+        }
+        
+        // Format other timing lines (like Total time:)
+        const formattedLine = line.replace(/\[INFO\]/, '⏱️');
+        return `<div class="log-line maven-timing-info">${formattedLine}</div>`;
+      }
+
       // Format Spring Boot log lines - improved pattern matching
       if (line.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+(Z|[+-]\d{2}:\d{2})\s+\w+\s+\d+\s+---/) ||
           line.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\s+\w+\s+\d+\s+---/)) { // Handle missing timezone
@@ -695,10 +806,20 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
 
         // Get log level and convert to emoji
         let logLevel = '💡';
-        if (line.includes(' INFO ')) logLevel = '💡';
-        else if (line.includes(' WARN ')) logLevel = '⚠️';
-        else if (line.includes(' ERROR ')) logLevel = '❌';
-        else if (line.includes(' DEBUG ')) logLevel = '🔍';
+        let logLevelClass = 'log-level-trace';
+        if (line.includes(' INFO ')) {
+          logLevel = '💡';
+          logLevelClass = 'log-level-info';
+        } else if (line.includes(' WARN ')) {
+          logLevel = '⚠️';
+          logLevelClass = 'log-level-warn';
+        } else if (line.includes(' ERROR ')) {
+          logLevel = '❌';
+          logLevelClass = 'log-level-error';
+        } else if (line.includes(' DEBUG ')) {
+          logLevel = '🔍';
+          logLevelClass = 'log-level-debug';
+        }
 
         // Extract class/component name - shorter version
         const componentMatch = line.match(/([a-z]+\.)+([A-Z][a-zA-Z0-9_$]+)(\s+|\s*:)/);
@@ -741,13 +862,13 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         if (message.includes('{') && message.endsWith('}')) {
           const firstOpeningBrace = message.indexOf('{');
           const lastClosingBrace = message.lastIndexOf('}');
-          
+
           // Make sure we're not parsing stack traces with braces
           // Stack traces typically have patterns like "ClassName.method(" or line numbers
           const potentialJson = message.substring(firstOpeningBrace, lastClosingBrace + 1);
-          const looksLikeStackTrace = potentialJson.match(/\b[A-Za-z]+\.[A-Za-z]+\(/) || 
+          const looksLikeStackTrace = potentialJson.match(/\b[A-Za-z]+\.[A-Za-z]+\(/) ||
                                      potentialJson.match(/:[0-9]+\)$/);
-          
+
           if (!looksLikeStackTrace) {
             try {
               const jsonString = message.substring(firstOpeningBrace, lastClosingBrace + 1);
@@ -772,41 +893,60 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         }
 
         // Format: [time] emoji component: message
-        return `<div class="log-line spring-log"><span class="timestamp">[${timeString}]</span> <span class="log-level">${logLevel}</span> ${component}: <span class="message">${formattedMessage}</span></div>`;
+        return `<div class="log-line spring-log"><span class="timestamp">[${timeString}]</span> <span class="log-level ${logLevelClass}">${logLevel}</span> ${component}: <span class="message">${formattedMessage}</span></div>`;
       }
 
       // Format Maven build output
       if (line.includes('[INFO]') || line.includes('[WARNING]') || line.includes('[ERROR]')) {
         let simplified = line;
-
+        let logClass = "maven-line";
+        let icon = "📦";
+      
+        // Determine log level and set appropriate icon
+        if (line.includes('[WARNING]')) {
+          icon = "⚠️";
+          logClass = "maven-line maven-warning";
+        } else if (line.includes('[ERROR]')) {
+          icon = "❌";
+          logClass = "maven-line maven-error";
+        }
+      
         // Replace Maven log indicators with emoji
         simplified = simplified
-                          .replace(/\[INFO\]/g, '📦')
-                          .replace(/\[WARNING\]/g, '⚠️')
-                          .replace(/\[ERROR\]/g, '❌');
-
+                          .replace(/\[INFO\]/g, icon)
+                          .replace(/\[WARNING\]/g, icon)
+                          .replace(/\[ERROR\]/g, icon);
+      
         // Replace phase markers with Unicode arrows
         simplified = simplified
                           .replace(/>>>/g, '▶️')
                           .replace(/<<</g, '◀️');
-
+      
+        // Format Maven phase messages like "--- plugin:version:goal @ module ---"
+        if (line.includes('---') && line.includes('@') && (line.includes(':compile') || 
+            line.includes(':test') || line.includes(':package') || line.includes(':resources'))) {
+          
+          // Extract the components from the phase message
+          const phaseMatch = line.match(/--- ([^:]+):([^:]+):([^ ]+) [^@]+@ ([^ ]+) ---/);
+          
+          if (phaseMatch) {
+            const plugin = phaseMatch[1];
+            const version = phaseMatch[2];
+            const goal = phaseMatch[3];
+            const module = phaseMatch[4];
+            
+            return `<div class="log-line maven-phase">
+              <span class="maven-plugin">${plugin}</span>
+              <span class="maven-goal">${goal}</span>
+              <span class="maven-version">${version}</span>
+              <span class="maven-module">@${module}</span>
+            </div>`;
+          }
+        }
+      
+        // Format standard Maven log lines
         const inner = this.highlightImportantStrings(simplified);
-
-        // Style module/project headers
-        if (simplified.includes('Building') && simplified.includes('[')) {
-          return `<div class="log-line maven-module-header">${inner}</div>`;
-        }
-
-        // Highlight important build stages
-        if (simplified.includes('spring-boot:') || simplified.includes('Building')) {
-          return `<div class="log-line maven-highlight">${inner}</div>`;
-        }
-
-        // Remove common redundant parts in Maven output
-        simplified = simplified.replace(/ \(default-[a-z]+\)/g, '');
-        simplified = simplified.replace(/--- [a-z]+:[0-9.]+:[a-z]+ /g, '--- ');
-
-        return `<div class="log-line maven-line">${inner}</div>`;
+        return `<div class="log-line ${logClass}">${inner}</div>`;
       }
 
       // Detect and format Maven section headers enclosed in dashes

@@ -91,6 +91,17 @@ body {
   line-height: 1.2;
   padding-top: 1px;
   padding-bottom: 1px;
+  background-color: rgba(40, 40, 40, 0.2); /* Subtle background to distinguish Maven logs */
+  border-left: 2px solid #444444;
+  padding-left: 5px;
+}
+
+.maven-warning {
+  border-left: 2px solid #ffcc00;
+}
+
+.maven-error {
+  border-left: 2px solid #f14c4c;
 }
 
 .maven-highlight {
@@ -672,4 +683,202 @@ h3 {
   padding: 0 2px;
   background-color: rgba(107, 176, 255, 0.1);
   border-radius: 3px;
+}
+
+/* Maven build summary formatting */
+.maven-separator hr {
+  border: none;
+  border-top: 1px dashed #666;
+  margin: 4px 0;
+}
+
+.maven-summary-header {
+  font-weight: bold;
+  font-size: 1.1em;
+  margin-top: 4px;
+  color: #569cd6;
+}
+
+.build-success {
+  color: #3c9c3c;
+  font-weight: bold;
+}
+
+.build-failure {
+  color: #e51400;
+  font-weight: bold;
+}
+
+.maven-module-result {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  margin: 3px 0;
+  border-radius: 4px;
+  justify-content: space-between;
+  white-space: nowrap;
+}
+
+.maven-module-result .module-name {
+  font-weight: 500;
+  flex: 0 1 auto;
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: hidden;
+  max-width: 60%;
+}
+
+.maven-module-result .module-status {
+  flex: 0 0 auto;
+  margin: 0 12px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.maven-module-result .module-time {
+  flex: 0 0 auto;
+  color: #999;
+  font-size: 0.9em;
+  font-family: monospace;
+  padding: 0 4px;
+  margin-left: auto;
+}
+
+.maven-module-result .module-name {
+  font-weight: 500;
+  flex: 1;
+}
+
+.maven-module-result .module-status {
+  margin: 0 12px;
+  font-size: 16px;
+}
+
+.maven-module-result .module-time {
+  color: #999;
+  font-size: 0.9em;
+  font-family: monospace;
+  padding: 0 4px;
+}
+
+.module-success {
+  background-color: rgba(60, 156, 60, 0.1);
+  border-left: 3px solid #3c9c3c;
+}
+
+.module-failure {
+  background-color: rgba(229, 20, 0, 0.1);
+  border-left: 3px solid #e51400;
+}
+
+.maven-timing-info {
+  color: #999;
+  font-style: italic;
+  margin: 4px 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background-color: rgba(60, 60, 60, 0.2);
+}
+
+.timing-icon {
+  font-size: 16px;
+}
+
+.timing-label {
+  font-weight: 500;
+  color: #bbb;
+}
+
+.timing-date {
+  color: #569cd6;
+}
+
+.timing-time {
+  color: #ce9178;
+  font-family: monospace;
+}
+
+.warning-icon {
+  font-size: 18px;
+  color: #ffcc00;
+  margin-right: 4px;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+/* Maven phase message styling */
+.maven-phase {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  margin: 8px 0;
+  background-color: rgba(90, 90, 90, 0.2);
+  border-left: 3px solid #569cd6;
+  border-radius: 4px;
+  font-family: monospace;
+  position: relative;
+}
+
+.maven-phase::before {
+  content: "⚙️";
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.maven-plugin {
+  font-weight: 600;
+  color: #569cd6;
+  margin-right: 6px;
+}
+
+.maven-goal {
+  color: #ce9178;
+  margin-right: 6px;
+  font-style: italic;
+}
+
+.maven-version {
+  color: #999;
+  font-size: 0.85em;
+  margin-right: 6px;
+  opacity: 0.7;
+}
+
+.maven-module {
+  margin-left: auto;
+  font-weight: 500;
+  color: #4ec9b0;
+}
+
+.warning-icon {
+  font-size: 20px;
+  color: #ffcc00;
+  margin-right: 4px;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+.log-level-warn {
+  color: #ffcc00;
+  font-size: 1.8em;
+  line-height: 0px;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+/* Spring Boot log separator - add this to clearly mark where Spring Boot starts */
+.spring-boot-start {
+  margin: 8px 0;
+  padding: 5px;
+  background: linear-gradient(to right, rgba(86, 156, 214, 0.1), rgba(86, 156, 214, 0.3));
+  border-radius: 4px;
+  border-left: 3px solid #569cd6;
+  font-weight: bold;
+  text-align: center;
 }
