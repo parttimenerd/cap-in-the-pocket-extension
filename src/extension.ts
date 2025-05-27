@@ -1024,6 +1024,10 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         },
         // URLs
         {
+          regex: /(\/[a-zA-z_]+[?][^ ]+)/g,
+          cssClass: "highlight-url"
+        },
+        {
           regex: /(https?:\/\/[^\s]+)/g,
           cssClass: "highlight-url"
         },

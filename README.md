@@ -40,7 +40,14 @@ It supports searching the log.
 
 Alternatively, visit the [Releases page](https://github.com/parttimenerd/cap-in-the-pocket-extension/releases) to see all available versions.
 
-### Option 2: Build from Source
+### Option 2: Latest Release via CLI
+
+```bash
+wget https://github.com/parttimenerd/cap-in-the-pocket-extension/releases/download/snapshot/cap-in-the-pocket-0.0.1.vsix .
+code --install-extension cap-in-the-pocket-0.0.1.vsix --no-sandbox --user-data-dir ~
+```
+
+### Option 3: Build from Source
 
 If you prefer to build the extension yourself:
 
