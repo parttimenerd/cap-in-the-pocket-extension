@@ -210,18 +210,41 @@ class WebAppDiscovery {
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Activating CAP-in-the-Pocket extension...");
+
+  // Create the webview provider instance to share between commands
+  const provider = new RunSpringBootViewProvider(context);
+  
+  // Register the webview provider
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
-      "runSpringBootView",
-      new RunSpringBootViewProvider(context)
+      "runSpringBootView", 
+      provider
     )
+  );
+  
+  // Register the clear logs command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('cap-in-the-pocket.clearLogs', () => {
+      if (provider._view) {
+        provider.clearLogs(provider._view.webview);
+      }
+    })
+  );
+  
+  // Register the kill and clear command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('cap-in-the-pocket.killAndClear', () => {
+      if (provider._view) {
+        provider.killAndClear(provider._view.webview);
+      }
+    })
   );
 }
 
 // Update the class to store both raw and formatted logs
 class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
   private context: vscode.ExtensionContext;
-  private _view?: vscode.WebviewView;
+  public _view?: vscode.WebviewView;
   // Store raw logs separately from formatted logs
   private logHistory: string = '';
   private rawLogHistory: string[] = [];
@@ -269,6 +292,12 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
           break;
         case "openUrl":
           this.openUrl(message.url);
+          break;
+        case "clearLogs":
+          this.clearLogs(webviewView.webview);
+          break;
+        case "killAndClear":
+          this.killAndClear(webviewView.webview);
           break;
       }
     });
@@ -611,7 +640,7 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
         <div class="extension-tagline">
           Experimental CAP-in-the-Pocket Extension
         </div>
-        <pre id="output"></pre>
+        <pre id="output" data-vscode-context='{"webviewSection": "log"}'></pre>
 
         ${urlButtonsHtml}
 
@@ -1167,6 +1196,69 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
 
       return result;
     }
+
+  // Add a method to clear logs
+  public clearLogs(webview: vscode.Webview): void {
+    // Clear the log history
+    this.logHistory = '';
+    this.rawLogHistory = [];
+    
+    // Update the webview
+    webview.postMessage({ command: 'clearOutput' });
+  }
+
+  // Add a new method to handle kill and clear
+  public killAndClear(webview: vscode.Webview): void {
+    // Get workspace folder - use the first one if multiple are open
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      webview.postMessage({ log: "\n❌ Error: No workspace folder is open. Please open a CAP project folder first.\n" });
+      return;
+    }
+
+    // Use the first workspace folder as the project root
+    const projectRoot = workspaceFolders[0].uri.fsPath;
+
+    // Get configured commands from settings
+    const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
+    const port = config.get('serverPort') as number || 4004;
+    const killPortCommand = (config.get('killPortCommand') as string).replace("PORT", port.toString());
+
+    // Execute the shell command in the project root directory
+    const options = {
+      cwd: projectRoot,
+      shell: true,
+      env: {
+        ...process.env
+      }
+    };
+
+    // First log the action
+    this.logToWebview(webview, `\n⏹️ Stopping processes on port ${port}...\n`);
+
+    // Kill any processes using the configured port
+    const killPortProcess = require('child_process').spawn(
+      killPortCommand,
+      [],
+      options
+    );
+
+    killPortProcess.on('close', (code: number) => {
+      const closeMessage = code === 0
+        ? `✅ Stopped all processes using port ${port}\n\n`
+        : `ℹ️ No processes were found using port ${port}\n\n`;
+
+      this.logToWebview(webview, closeMessage);
+      
+      // Clear logs after killing the processes
+      setTimeout(() => this.clearLogs(webview), 500);
+    });
+
+    // Handle errors from the kill port process
+    killPortProcess.on('error', (err: Error) => {
+      webview.postMessage({ log: `\n⚠️ Warning: Failed to kill processes on port ${port}: ${err.message}\n` });
+    });
+  }
 }
 
 export function deactivate() {

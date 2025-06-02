@@ -29,6 +29,9 @@
 
     // URL buttons
     document.querySelectorAll('.url-button').forEach(attachUrlButtonHandler);
+    
+    // The context menu event listener and related code has been removed
+    // since we're now using VS Code's native context menu system
   }
 
   function attachUrlButtonHandler(btn) {

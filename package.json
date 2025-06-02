@@ -103,7 +103,32 @@
           "description": "Maximum number of log messages to keep in the output view (0 for unlimited)"
         }
       }
-    }
+    },
+    "menus": {
+      "webview/context": [
+        {
+          "command": "cap-in-the-pocket.clearLogs",
+          "when": "webviewId == 'runSpringBootView' && webviewSection == 'log'"
+        },
+        {
+          "command": "cap-in-the-pocket.killAndClear",
+          "when": "webviewId == 'runSpringBootView' && webviewSection == 'log'"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "cap-in-the-pocket.clearLogs",
+        "title": "Clear Log",
+        "category": "CAP in the Pocket"
+      },
+      {
+        "command": "cap-in-the-pocket.killAndClear",
+        "title": "Kill and Clear",
+        "category": "CAP in the Pocket",
+        "icon": "$(trash)"
+      }
+    ]
   },
   "scripts": {
     "compile": "tsc"
