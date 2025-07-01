@@ -662,13 +662,20 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     const config = vscode.workspace.getConfiguration('cap-in-the-pocket');
     const enableLogFiltering = config.get('enableLogFiltering') as boolean || true;
 
+    // Remove ANSI escape sequences early to prevent them from appearing in the output
+    const cleanOutput = output
+      // Remove ANSI escape sequences (including color codes like [0m, [31m, etc.)
+      .replace(/\x1b\[[0-9;]*m/g, '')
+      // Remove any remaining ANSI escape sequences
+      .replace(/\x1b\[[A-Za-z0-9;]*[a-zA-Z]/g, '');
+
     // Always wrap even plain text in divs for consistent styling
     if (!enableLogFiltering) {
-      return `<div class="log-line plain-text">${this.escapeHtml(output)}</div>`;
+      return `<div class="log-line plain-text">${this.escapeHtml(cleanOutput)}</div>`;
     }
 
     // Split output into lines for processing
-    const lines = output.split('\n');
+    const lines = cleanOutput.split('\n');
     const formattedLines = lines.map(line => {
       // Skip empty lines but add a small spacer
       if (!line.trim()) {
@@ -990,9 +997,13 @@ class RunSpringBootViewProvider implements vscode.WebviewViewProvider {
     return formattedLines.join('');
   }
 
-  // Helper method to safely escape HTML characters
+  // Helper method to safely escape HTML characters and remove ANSI escape sequences
   private escapeHtml(unsafe: string): string {
     return unsafe
+        // Remove ANSI escape sequences (including color codes like [0m, [31m, etc.)
+        .replace(/\x1b\[[0-9;]*m/g, '')
+        // Remove any remaining ANSI escape sequences
+        .replace(/\x1b\[[A-Za-z0-9;]*[a-zA-Z]/g, '')
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
